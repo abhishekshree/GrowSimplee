@@ -6,13 +6,6 @@ from werkzeug.utils import secure_filename
 import os
 
 
-# example for location module
-# data_df = pd.read_excel("data/bangalore_dispatch_address_finals.xlsx")
-# g = Geocoding(Variables.bingAPIKey, data_df)
-
-# res = g.generate()
-
-
 UPLOAD_FOLDER = Variables.uploadFolder
 ALLOWED_EXTENSIONS = {"xlsx", "xls", "csv"}
 
