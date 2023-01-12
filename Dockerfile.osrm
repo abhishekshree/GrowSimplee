@@ -1,0 +1,16 @@
+FROM alpine
+
+RUN apk add --no-cache docker
+
+WORKDIR /app
+
+COPY ./osrm/run.sh .
+COPY ./osrm/southern-zone-latest.osm.pbf .
+
+RUN ls -la
+
+RUN chmod +x run.sh
+
+EXPOSE 5050
+
+ENTRYPOINT [ "./run.sh" ]
