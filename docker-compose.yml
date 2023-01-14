@@ -1,17 +1,22 @@
 version: '3.7'
 
 services:
-  # backend:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   restart: always
-  #   ports:
-  #     - 5000:5000
-  osrm:
+  backend:
     build:
       context: .
-      dockerfile: Dockerfile.osrm
+      dockerfile: Dockerfile
     restart: always
     ports:
       - 5050:5050
+    depends_on:
+      - osrm
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend
+    container_name: osrm
+    restart: always
+    ports:
+      - 5000:5000
+    volumes:
+      - ./osrm:/data
+    command: "osrm-routed --algorithm mld /data/southern-zone-latest.osrm"
+    
