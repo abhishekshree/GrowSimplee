@@ -213,6 +213,19 @@ def coordinates():
         res = g.generate()
         return jsonify(res), 200
 
+@app.route("/get/distance_matrix", methods=["GET"])
+def distance_mat():
+    if request.method == "GET":
+        data_df = pd.read_excel(UPLOAD_FOLDER + "input.xlsx")
+        g = Geocoding(Variables.bingAPIKey, data_df, Variables.port2)
+        _ = g.generate()
+        g.remove_coords()
+        dist_mat = g.distance_matrix()
+        for i in range(0, len(dist_mat)):
+            for j in range(0, len(dist_mat[i])):
+                dist_mat[i][j] = int(dist_mat[i][j])
+        return jsonify(dist_mat), 200
+
 
 # db-related routes
 @app.route("/post/admin/new", methods=["POST"])  # creates a new admin

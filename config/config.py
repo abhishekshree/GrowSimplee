@@ -13,4 +13,6 @@ class Variables:
     debug: bool = True
     # host: str = "127.0.0.1"
     host: str = "0.0.0.0"
-    port: int = 5050
+    port: int = 5000
+    # port: int = 6969
+    port2: int = 5050

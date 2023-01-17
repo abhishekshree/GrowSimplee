@@ -1,12 +1,15 @@
 import geocoder
+import requests
 from multiprocessing import Pool
 
 
 class Geocoding:
-    def __init__(self, bing_api_key, address_df):
+    def __init__(self, bing_api_key, address_df, port2):
         self.bing_api_key = bing_api_key
         self.address_df = address_df
+        self.port2 = port2
         self.result = []
+        self.dist_matrix = []
 
     @staticmethod
     def generate_address_pool(address):
@@ -61,3 +64,29 @@ class Geocoding:
                 }
             )
         return self.result
+
+    def calc_distance(self, lat, long):
+        bang_coord = [12.97674656, 77.57527924]
+        dist_y = ((lat - bang_coord[0]) * 20004) / 180
+        dist_x = ((long - bang_coord[1]) * 40075) / 360
+        dist = (dist_x ** 2 + dist_y ** 2) ** 0.5
+        return dist
+
+    def remove_coords(self):
+        new_result = []
+        for addr in self.result:
+            if(self.calc_distance(addr['latitude'], addr['longitude']) <= 20):
+                new_result.append(addr)
+        self.result = new_result
+
+
+    def distance_matrix(self):
+        coord_str = ""
+        for addr in self.result:
+            coord_str += str(addr['longitude']) + "," + str(addr['latitude']) + ";"
+        coord_str = coord_str[:-1]
+        url = f'http://localhost:{self.port2}/table/v1/driving/' + coord_str
+        r = requests.get(url, params={'annotations': 'distance'})
+        r = r.json()
+        self.dist_matrix = r['distances']
+        return self.dist_matrix
