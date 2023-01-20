@@ -7,7 +7,12 @@ if ls osrm/southern-zone-latest.osrm.* 1> /dev/null 2>&1; then
     exit 0
 else
     echo "Files does not exist."
-  
+
+    echo "Downloading data"
+    mkdir -p osrm/
+    wget -O osrm/southern-zone-latest.osm.pbf https://download.geofabrik.de/asia/india/southern-zone-latest.osm.pbf
+    echo "Download complete"
+    
     echo "Running OSRM"
     docker run -t -v "${PWD}/osrm:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/southern-zone-latest.osm.pbf
     echo "Partitioning"
