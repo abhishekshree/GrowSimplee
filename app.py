@@ -51,6 +51,9 @@ class Admin(db.Model):
         self.num_drivers = num_drivers
         self.put_output_map(output_map)
 
+    def __repr__(self):
+        return f"Admin id: {self.id}"
+
 
 class Driver(db.Model):
     __tablename__ = "driver"
@@ -67,6 +70,9 @@ class Driver(db.Model):
     def put_path(self, path):
         self.path = json.dumps(path)
 
+    def assign_admin(self, admin_id):
+        self.admin_id = admin_id
+
     def __init__(self, name, admin_id, map_id=None, path=None, date=None):
         self.admin_id = admin_id
         self.name = name
@@ -77,29 +83,86 @@ class Driver(db.Model):
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def put_input_map(file, admin_id):
+    file.filename = "input." + file.filename.rsplit(".", 1)[1].lower()
+    file.save(os.path.join(app.config["UPLOAD_FOLDER"], file.filename))
+    data_df = pd.read_excel(UPLOAD_FOLDER + file.filename)
+    g = Geocoding(Variables.bingAPIKey, data_df)
+    res = g.generate()
+    os.remove(os.path.join(app.config["UPLOAD_FOLDER"], file.filename))
 
-@app.route("/post/data", methods=["GET", "POST"])
+    admin=Admin.query.get_or_404(admin_id)
+    admin.output_map=json.dumps(res)
+    db.session.commit()
+
+
+def generate_drivers(admin_id, n):
+    initial_drivers = len(Driver.query.filter(Driver.id.startswith(admin_id).all()))
+    if(initial_drivers<n):
+        for i in range(1,1+n-initial_drivers):
+            driver = Driver(id=str(admin_id)+"_"+str(initial_drivers+i), admin_id=admin_id)
+            db.session.add(driver)
+        db.session.commit()
+
+
+@app.route("/post/input", methods=["GET", "POST"]) #takes admin id, map and number of drivers. Also updates driver db with the required number of drivers
 def data():
     # get input as a dataframe and store it in data/ folder
     if request.method == "POST":
         if "file" not in request.files:
             return jsonify({"message": "No file part in the request"}), 400
-
-        file = request.files["file"]
-
-        if file.filename == "":
-            return jsonify({"message": "No file selected for uploading"}), 400
-
-        if file and allowed_file(file.filename):
-            # change filename to input.extension
-            file.filename = "input." + file.filename.rsplit(".", 1)[1].lower()
-            file.save(os.path.join(app.config["UPLOAD_FOLDER"], file.filename))
-            return jsonify({"message": "File successfully uploaded"}), 200
-        else:
+        if "no_of_drivers" not in request.form:
+            return jsonify({"message": "Number of drivers not specified"})
+        if "admin_id" not in request.form:
+            return jsonify({"message": "Admin id not received"})
+        if not allowed_file(file.filename):
             return jsonify({"message": "Allowed file types are xlsx, xls, csv"}), 400
+        
+        admin_id = request.form["admin_id"]
+        n = request.form["num_of_drivers"]
+
+        put_input_map(admin_id=admin_id, file=request.files["file"])
+        generate_drivers(admin_id=admin_id, n=n)
+
+        # file = request.files["file"]
+
+        # if file.filename == "":
+        #     return jsonify({"message": "No file selected for uploading"}), 400
+
+        # if file and allowed_file(file.filename):
+        #     # change filename to input.extension
+        #     file.filename = "input." + file.filename.rsplit(".", 1)[1].lower()
+        #     file.save(os.path.join(app.config["UPLOAD_FOLDER"], file.filename))
+
+        #     data_df = pd.read_excel(UPLOAD_FOLDER + file.filename)
+        #     g = Geocoding(Variables.bingAPIKey, data_df)
+        #     res = g.generate()
+        #     # return jsonify(res), 200
+
+        #     if "admin_id" in request.form:
+        #         if "no_of_drivers" not in request.form:
+        #             return jsonify({"message": "Number of drivers not specified"})
+                
+        #         admin_id=request.form["admin_id"]
+        #         n = request.form["num_of_drivers"]
+        #         admin = Admin.query.filter_by(admin_id=admin_id)
+
+
+        #         Admin.query.filter_by(admin_id=request.form["admin_id"]).put_input_map(res)
+        #         return
+        #     else:
+        #         return jsonify({"message": "Admin id not received"})
+
+        #     return jsonify({"message": "File successfully uploaded"}), 200
+        # else:
+        #     return jsonify({"message": "Allowed file types are xlsx, xls, csv"}), 400
 
 
 # TODO: Can run the generate just after receiving the file because /get/coordinates would not be used ever imo
+
+@app.route("/")
+def hello():
+    return  ("hello")
 
 
 @app.route("/get/coordinates", methods=["GET"])
@@ -126,12 +189,69 @@ def post_admin():
         return jsonify({"message": "Admin successfully added", "id": admin_id}), 200
 
 
-@app.route("/get/admin")
+# @app.route("post/admin/addpoint", methods=["POST"])
+# # how to store dynamic points
+# def post_point():
+#     if request.method == "POST":
+#         if "admin_id" not in request.form:
+#             return jsonify({"message": "Admin id not provided"})
+
+
+
+
+
+@app.route("/get/admin/output", methods=["GET"])
 def get_admin():
-    admin_id = request.args.get("id")
+    if "admin_id" not in request.args:
+        return jsonify({"message": "Admin id not provided"})
+
+    admin_id = request.args.get("admin_id")
+
     admin = Admin.query.filter_by(id=admin_id).first()
-    return jsonify(admin), 200
+    map_data = admin.get_output_map
+    return jsonify(map_data), 200
+
+@app.route("/post/driver/assign", methods=["POST"])
+def assign_to_admin():
+    if request.method=="POST":
+        if "admin_id" not in request.form:
+            return jsonify({"message": "Admin id not provided"})
+        if "dirver_id" not in request.form:
+            return jsonify({"message": "Driver id not provided"})
+        Driver.query.filter_by(id=request.form["driver_id"]).assign_admin(request.form["admin_id"])
+        return jsonify({"message" : "Driver successfully assigned to admin"})
+
+@app.route("/post/driver/path", methods=["POST"])
+def put_driver_path():
+    if request.method == "POST":
+        if "driver_id" not in request.form:
+            return jsonify({"message": "Driver id not provided"})
+
+
+@app.route("/get/driver/path", methods=["GET"])
+def get_driver_path():
+    if "driver_id" not in request.args:
+        return jsonify({"message": "Driver id not provided"})
+    return jsonify(Driver.query.filter_by(id=request.form["driver_id"]).get_path())
+
+
+
+
+
+
+# @app.route("put")
+
+
 
 
 if __name__ == "__main__":
+    with app.app_context():
+        db.session.query(Admin).delete()
+        db.create_all()
+        db.session.add(Admin(id=3))
+        db.session.add(Admin(id=2))
+        db.session.commit()
+        print(Admin.query.all())
+        print(len((Admin.query.filter(Admin.id.startswith(""))).all()))
     app.run(debug=Variables.debug, host=Variables.host, port=Variables.port)
+
