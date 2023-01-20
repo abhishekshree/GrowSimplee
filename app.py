@@ -70,8 +70,8 @@ class Driver(db.Model):
     def put_path(self, path):
         self.path = json.dumps(path)
 
-    def assign_admin(self, admin_id):
-        self.admin_id = admin_id
+    # def assign_admin(self, admin_id):
+    #     self.admin_id = admin_id
 
     def __init__(self, name, admin_id, map_id=None, path=None, date=None):
         self.admin_id = admin_id
@@ -104,25 +104,35 @@ def generate_drivers(admin_id, n):
             db.session.add(driver)
         db.session.commit()
 
+def assign_maps_to_drivers(admin_id):
+    drivers=Driver.query.all()
+    maps=json.loads(Admin.query.get_or_404(admin_id))
+    for i in range(len(maps)):
+        drivers[i].path = maps[i]
 
-@app.route("/post/input", methods=["GET", "POST"]) #takes admin id, map and number of drivers. Also updates driver db with the required number of drivers
-def data():
+
+@app.route("/post/admin/input", methods=["GET", "POST"]) #takes admin id, map and number of drivers. Also updates driver db with the required number of drivers
+def input():
     # get input as a dataframe and store it in data/ folder
     if request.method == "POST":
+        
         if "file" not in request.files:
             return jsonify({"message": "No file part in the request"}), 400
         if "no_of_drivers" not in request.form:
             return jsonify({"message": "Number of drivers not specified"})
         if "admin_id" not in request.form:
             return jsonify({"message": "Admin id not received"})
+        file = request.files["file"]
         if not allowed_file(file.filename):
             return jsonify({"message": "Allowed file types are xlsx, xls, csv"}), 400
         
         admin_id = request.form["admin_id"]
-        n = request.form["num_of_drivers"]
+        n = request.form["no_of_drivers"]
 
         put_input_map(admin_id=admin_id, file=request.files["file"])
         generate_drivers(admin_id=admin_id, n=n)
+
+        return ({"message": "Input successful"})
 
         # file = request.files["file"]
 
@@ -165,7 +175,7 @@ def hello():
     return  ("hello")
 
 
-@app.route("/get/coordinates", methods=["GET"])
+@app.route("/get/coordinates", methods=["GET", "POST"])
 def coordinates():
     # get coordinates from the dataframe and return it as a json
     if request.method == "GET":
@@ -196,10 +206,6 @@ def post_admin():
 #         if "admin_id" not in request.form:
 #             return jsonify({"message": "Admin id not provided"})
 
-
-
-
-
 @app.route("/get/admin/output", methods=["GET"])
 def get_admin():
     if "admin_id" not in request.args:
@@ -211,28 +217,50 @@ def get_admin():
     map_data = admin.get_output_map
     return jsonify(map_data), 200
 
-@app.route("/post/driver/assign", methods=["POST"])
-def assign_to_admin():
-    if request.method=="POST":
-        if "admin_id" not in request.form:
-            return jsonify({"message": "Admin id not provided"})
-        if "dirver_id" not in request.form:
-            return jsonify({"message": "Driver id not provided"})
-        Driver.query.filter_by(id=request.form["driver_id"]).assign_admin(request.form["admin_id"])
-        return jsonify({"message" : "Driver successfully assigned to admin"})
-
-@app.route("/post/driver/path", methods=["POST"])
-def put_driver_path():
-    if request.method == "POST":
-        if "driver_id" not in request.form:
-            return jsonify({"message": "Driver id not provided"})
+# @app.route("/post/driver/assign", methods=["POST"])
+# def assign_to_admin():
+#     if request.method=="POST":
+#         if "admin_id" not in request.form:
+#             return jsonify({"message": "Admin id not provided"})
+#         if "dirver_id" not in request.form:
+#             return jsonify({"message": "Driver id not provided"})
+#         Driver.query.filter_by(id=request.form["driver_id"]).assign_admin(request.form["admin_id"])
+#         return jsonify({"message" : "Driver successfully assigned to admin"})
 
 
-@app.route("/get/driver/path", methods=["GET"])
-def get_driver_path():
-    if "driver_id" not in request.args:
+
+# @app.route("/post/driver/path", methods=["POST"])
+# def put_driver_path():
+#     if request.method == "POST":
+#         if "driver_id" not in request.form:
+#             return jsonify({"message": "Driver id not provided"})
+
+
+# @app.route("/get/driver/path", methods=["GET"])
+# def get_driver_path():
+#     if "driver_id" not in request.args:
+#         return jsonify({"message": "Driver id not provided"})
+#     return jsonify(Driver.query.filter_by(id=request.form["driver_id"]).get_path())
+
+
+@app.route("/get/admins", methods=["GET","POST"])
+def get_admins():
+    admins=Admin.query.all()
+    out=""
+    for admin in admins:
+        out+=f"Admin ID:\t{admin.id}\n"
+    return out, 200
+
+@app.route("/get/admin/drivers", methods=["GET"])
+def get_drivers():
+    if "admin_id" not in request.args:
         return jsonify({"message": "Driver id not provided"})
-    return jsonify(Driver.query.filter_by(id=request.form["driver_id"]).get_path())
+    
+    drivers = Driver.query.all()
+    for driver in drivers:
+        print("Driver id:\t"+driver.id+"\t Admin:\t"+driver.admin_id)
+    
+
 
 
 
