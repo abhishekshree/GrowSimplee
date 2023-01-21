@@ -271,9 +271,12 @@ def get_drivers_for_admin():
     if "admin_id" not in request.args:
         return jsonify({"message": "Admin id not provided"})
     
+    out=""
+
     drivers = Driver.query.filter(Driver.admin_id==request.args["admin_id"]).all()
     for driver in drivers:
-        print("Driver id:\t"+driver.id+"\t Admin:\t"+driver.admin_id)
+        out+=("Driver id:\t"+driver.id+"\t Admin:\t"+driver.admin_id)+"\n"
+    return out
     
 
 
