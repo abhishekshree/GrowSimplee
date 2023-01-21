@@ -73,7 +73,8 @@ class Driver(db.Model):
     # def assign_admin(self, admin_id):
     #     self.admin_id = admin_id
 
-    def __init__(self, name, admin_id, map_id=None, path=None, date=None):
+    def __init__(self,id, admin_id, name = None, map_id=None, path=None, date=None):
+        self.id = id
         self.admin_id = admin_id
         self.name = name
         self.map_id = map_id
@@ -84,22 +85,23 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def put_input_map(file, admin_id):
-    file.filename = "input." + file.filename.rsplit(".", 1)[1].lower()
-    file.save(os.path.join(app.config["UPLOAD_FOLDER"], file.filename))
-    data_df = pd.read_excel(UPLOAD_FOLDER + file.filename)
-    g = Geocoding(Variables.bingAPIKey, data_df)
-    res = g.generate()
-    os.remove(os.path.join(app.config["UPLOAD_FOLDER"], file.filename))
+    # file.filename = "input." + file.filename.rsplit(".", 1)[1].lower()
+    # file.save(os.path.join(app.config["UPLOAD_FOLDER"], file.filename))
+    # data_df = pd.read_excel(UPLOAD_FOLDER + file.filename)
+    # g = Geocoding(Variables.bingAPIKey, data_df)
+    # res = g.generate()
+    # os.remove(os.path.join(app.config["UPLOAD_FOLDER"], file.filename))
 
     admin=Admin.query.get_or_404(admin_id)
-    admin.output_map=json.dumps(res)
+    admin.output_map=file
+    # admin.output_map=json.dumps(res)
     db.session.commit()
 
 
 def generate_drivers(admin_id, n):
-    initial_drivers = len(Driver.query.filter(Driver.id.startswith(admin_id).all()))
+    initial_drivers = len(Driver.query.filter(Driver.id.startswith(admin_id)).all())
     if(initial_drivers<n):
-        for i in range(1,1+n-initial_drivers):
+        for i in range(1,1+n + initial_drivers):
             driver = Driver(id=str(admin_id)+"_"+str(initial_drivers+i), admin_id=admin_id)
             db.session.add(driver)
         db.session.commit()
@@ -116,20 +118,24 @@ def input():
     # get input as a dataframe and store it in data/ folder
     if request.method == "POST":
         
-        if "file" not in request.files:
-            return jsonify({"message": "No file part in the request"}), 400
+        # if "file" not in request.files:
+        #     return jsonify({"message": "No file part in the request"}), 400
         if "no_of_drivers" not in request.form:
             return jsonify({"message": "Number of drivers not specified"})
         if "admin_id" not in request.form:
             return jsonify({"message": "Admin id not received"})
-        file = request.files["file"]
-        if not allowed_file(file.filename):
-            return jsonify({"message": "Allowed file types are xlsx, xls, csv"}), 400
+        # file = request.files["file"]
+        # if not allowed_file(file.filename):
+        #     return jsonify({"message": "Allowed file types are xlsx, xls, csv"}), 400
         
-        admin_id = request.form["admin_id"]
-        n = request.form["no_of_drivers"]
+        file = request.form["file"] ####
 
-        put_input_map(admin_id=admin_id, file=request.files["file"])
+        admin_id = request.form["admin_id"]
+        n = int(request.form["no_of_drivers"])
+
+        put_input_map(admin_id=admin_id, file=file)
+
+        # put_input_map(admin_id=admin_id, file=request.files["file"])
         generate_drivers(admin_id=admin_id, n=n)
 
         return ({"message": "Input successful"})
@@ -251,12 +257,21 @@ def get_admins():
         out+=f"Admin ID:\t{admin.id}\n"
     return out, 200
 
-@app.route("/get/admin/drivers", methods=["GET"])
+@app.route("/get/drivers", methods=["GET", "POST"])
 def get_drivers():
-    if "admin_id" not in request.args:
-        return jsonify({"message": "Driver id not provided"})
+    drivers=Driver.query.all()
+    out=""
+    for driver in drivers:
+        out+=f"Driver ID:\t{driver.id}\tAdmin ID:\t{driver.admin_id}\n"
+    return out, 200
     
-    drivers = Driver.query.all()
+
+@app.route("/get/admin/drivers", methods=["GET"])
+def get_drivers_for_admin():
+    if "admin_id" not in request.args:
+        return jsonify({"message": "Admin id not provided"})
+    
+    drivers = Driver.query.filter(Driver.admin_id==request.args["admin_id"]).all()
     for driver in drivers:
         print("Driver id:\t"+driver.id+"\t Admin:\t"+driver.admin_id)
     
