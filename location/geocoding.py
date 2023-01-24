@@ -32,6 +32,8 @@ class Geocoding:
     def generate(self):
         addrs = self.address_df["address"]
         address_pool = self.generate_address_pool(addrs)
+
+
         p = Pool()
         results = p.map(self.geoloc, address_pool)
         lats = []
@@ -39,6 +41,8 @@ class Geocoding:
         for i in range(0, len(addrs)):
             row = int(i / 50)
             col = i % 50
+            # print(row)
+            # print(col)
             lats.append(results[row][col][0])
             longs.append(results[row][col][1])
 
