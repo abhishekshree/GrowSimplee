@@ -31,8 +31,11 @@ class Geocoding:
 
     def generate(self):
         addrs = self.address_df["address"]
+        location = self.address_df["location"]
+        AWB = self.address_df["AWB"]
+        names = self.address_df["names"]
+        product_id = self.address_df["product_id"]
         address_pool = self.generate_address_pool(addrs)
-
 
         p = Pool()
         results = p.map(self.geoloc, address_pool)
@@ -47,6 +50,14 @@ class Geocoding:
             longs.append(results[row][col][1])
 
             self.result.append(
-                {"address": addrs[i], "latitude": lats[i], "longitude": longs[i]}
+                {
+                    "address": addrs[i],
+                    "latitude": lats[i],
+                    "longitude": longs[i],
+                    "location": location[i],
+                    "AWB": str(AWB[i]),
+                    "name": names[i],
+                    "product_id": product_id[i],
+                }
             )
         return self.result

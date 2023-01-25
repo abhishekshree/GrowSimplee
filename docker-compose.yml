@@ -18,5 +18,5 @@ services:
       - 5000:5000
     volumes:
       - ./osrm:/data
-    command: "osrm-routed --algorithm mld /data/southern-zone-latest.osrm"
+    command: "osrm-routed --algorithm mld --max-table-size 10000 /data/southern-zone-latest.osrm"
     
