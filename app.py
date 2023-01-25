@@ -2,6 +2,7 @@ from datetime import datetime
 from config.config import Variables
 import pandas as pd
 from location.geocoding import Geocoding
+from or_tools.paths import PathGen
 from flask import Flask, request, jsonify
 import os
 from flask_sqlalchemy import SQLAlchemy
@@ -213,18 +214,28 @@ def coordinates():
         res = g.generate()
         return jsonify(res), 200
 
-@app.route("/get/distance_matrix", methods=["GET"])
-def distance_mat():
-    if request.method == "GET":
-        data_df = pd.read_excel(UPLOAD_FOLDER + "input.xlsx")
-        g = Geocoding(Variables.bingAPIKey, data_df, Variables.port2)
-        _ = g.generate()
-        g.remove_coords()
-        dist_mat = g.distance_matrix()
-        for i in range(0, len(dist_mat)):
-            for j in range(0, len(dist_mat[i])):
-                dist_mat[i][j] = int(dist_mat[i][j])
-        return jsonify(dist_mat), 200
+
+@app.route("/post/admin/genmap", methods=["GET", "POST"])
+def gen_map():
+    admin_id = request.args.get("admin_id")
+    admin = Admin.query.get_or_404(admin_id)
+    input_map = json.loads(admin.input_map)
+    num_drivers = admin.num_drivers
+    print(input_map)
+    idx_map = []
+    for i in range(0, len(input_map)):
+        idx_map.append({
+            "latitude": input_map[i]["latitude"],
+            "longitude": input_map[i]["longitude"],
+        })
+    
+    num_drivers = request.args.get("num_drivers")
+    hub_node = request.args.get("hub_node")
+
+    pg = PathGen(idx_map, num_drivers, hub_node)
+    pg.remove_coords()
+    output_map = pg.get_output_map()
+    return jsonify(output_map), 200
 
 
 # db-related routes

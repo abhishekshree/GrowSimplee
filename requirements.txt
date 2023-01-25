@@ -1,5 +1,7 @@
 Flask==2.2.2
 flask_sqlalchemy==3.0.2
 geocoder==1.38.1
+ortools==9.5.2237
 pandas==1.4.2
-python-dotenv==0.21.0
+python-dotenv==0.21.1
+requests==2.28.1

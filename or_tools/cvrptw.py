@@ -2,58 +2,7 @@ import pandas as pd
 import time
 import requests
 import random
-#40075 kms
-#20,004 kms
 
-begin = time.time()
-
-bang_coord = [
-       12.97674656,
-       77.57527924
-      ]
-
-def distance_calc(lat_diff, long_diff):
-    dist = ((lat_diff * 20004) / 180) + ((long_diff * 40075) / 360)
-    return dist
-
-df = pd.read_excel("Geocode.xlsx")
-l = len(df['Latitude'])
-distance_matrix = []
-addr = []
-lats = []
-longs = []
-lat_longs = []
-info_pass = []
-
-for i in range(0, l):
-    d = distance_calc(abs(df['Latitude'][i] - bang_coord[0]), abs(df['Longitude'][i] - bang_coord[1])) 
-    if(d <= 20):
-        lats.append(df['Latitude'][i])
-        longs.append(df['Longitude'][i])
-        lat_longs.append([df['Latitude'][i], df['Longitude'][i]])
-        info_pass.append({'lat': df['Latitude'][i], 'lng': df["Longitude"][i]})
-        addr.append(df['address'][i])
-    else:
-        pass
-        # print(d)
-        # print(df['address'][i])
-
-l = len(lats)
-# print(info_pass)
-# for i in range(0, l):
-#     distance_list = []
-#     for j in range(0, l):
-#         d = distance_calc(abs(lats[i] - lats[j]), abs(longs[i] - longs[j]))
-#         distance_list.append(d)
-#     distance_matrix.append(distance_list)
-
-
-coord_str = ""
-for latlng in lat_longs:
-    coord_str += str(latlng[1]) + "," + str(latlng[0]) + ";"
-coord_str = coord_str[:-1]
-
-url = "http://localhost:5000/table/v1/driving/" + coord_str
 
 # def distance_fetch(sources):
 #     source_str = ""
@@ -74,37 +23,19 @@ url = "http://localhost:5000/table/v1/driving/" + coord_str
 
 
 max1 = 0
-max2 = 0 
+max2 = 0
 curr_node = 144
 
 source_mat = []
-cnt = 0
-while(cnt < l):
-    if cnt + 10 < l:
-        sm = [i for i in range(cnt, cnt + 10)]
-        source_mat.append(sm)
-    else:
-        sm = [i for i in range(cnt, l)]
-        source_mat.append(sm)
-    cnt += 10
-    
-# p = Pool()
-# res = p.map(distance_fetch, source_mat)
 
-# for r in res:
-#     for distances in r:
-#         distance_matrix.append(distances)
-
-params = {
-    'annotations' : 'distance,duration'
-}
+params = {"annotations": "distance,duration"}
 
 r = requests.get(url, params=params)
 r = r.json()
-distance_matrix = r['distances']
-duration_matrix = r['durations']
+distance_matrix = r["distances"]
+duration_matrix = r["durations"]
 
-for i in range(0,l):
+for i in range(0, l):
     max2 = max(distance_matrix[curr_node][i], max2)
     for j in range(0, l):
         distance_matrix[i][j] = int(distance_matrix[i][j])
@@ -122,6 +53,7 @@ print()
 from functools import partial
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
+
 # [END import]
 
 num_loc = len(distance_matrix)
@@ -130,15 +62,15 @@ num_loc = len(distance_matrix)
 def create_data_model():
     """Stores the data for the problem."""
     data = {}
-    
-    data['distance'] = distance_matrix
-    data['time'] = duration_matrix
-    data['num_locations'] = num_loc
-    data['time_windows'] = [(0, 15000) for i in range(num_loc)]
-    data['demands'] = [random.randint(27, 16001) for i in range(num_loc)]
-    data['num_vehicles'] = random.randint(int(num_loc / 20), int(num_loc / 15) + 1)
-    data['vehicle_capacity'] = 6400000
-    data['depot'] = curr_node
+
+    data["distance"] = distance_matrix
+    data["time"] = duration_matrix
+    data["num_locations"] = num_loc
+    data["time_windows"] = [(0, 15000) for i in range(num_loc)]
+    data["demands"] = [random.randint(27, 16001) for i in range(num_loc)]
+    data["num_vehicles"] = random.randint(int(num_loc / 20), int(num_loc / 15) + 1)
+    data["vehicle_capacity"] = 6400000
+    data["depot"] = curr_node
     return data
     # [END data_model]
 
@@ -150,19 +82,18 @@ def create_data_model():
 
 def create_distance_evaluator(data):
     """Creates callback to return distance between points."""
-    _distances = data['distance']
+    _distances = data["distance"]
 
     def distance_evaluator(manager, from_node, to_node):
         """Returns the manhattan distance between the two nodes"""
-        return _distances[manager.IndexToNode(from_node)][manager.IndexToNode(
-            to_node)]
+        return _distances[manager.IndexToNode(from_node)][manager.IndexToNode(to_node)]
 
     return distance_evaluator
 
 
 def create_demand_evaluator(data):
     """Creates callback to get demands at each location."""
-    _demands = data['demands']
+    _demands = data["demands"]
 
     def demand_evaluator(manager, node):
         """Returns the demand of the current node"""
@@ -173,41 +104,42 @@ def create_demand_evaluator(data):
 
 def add_capacity_constraints(routing, data, demand_evaluator_index):
     """Adds capacity constraint"""
-    capacity = 'Capacity'
+    capacity = "Capacity"
     routing.AddDimension(
         demand_evaluator_index,
         0,  # null capacity slack
-        data['vehicle_capacity'],
+        data["vehicle_capacity"],
         True,  # start cumul to zero
-        capacity)
+        capacity,
+    )
 
 
 def create_time_evaluator(data):
 
-    _total_time = data['time']
+    _total_time = data["time"]
 
     def time_evaluator(manager, from_node, to_node):
         """Returns the total time between the two nodes"""
-        return _total_time[manager.IndexToNode(from_node)][manager.IndexToNode(
-            to_node)]
+        return _total_time[manager.IndexToNode(from_node)][manager.IndexToNode(to_node)]
 
     return time_evaluator
 
 
 def add_time_window_constraints(routing, manager, data, time_evaluator_index):
     """Add Global Span constraint"""
-    time = 'Time'
+    time = "Time"
     horizon = 15000
     routing.AddDimension(
         time_evaluator_index,
         horizon,  # allow waiting time
         horizon,  # maximum time per vehicle
         True,  # don't force start cumul to zero since we are giving TW to start nodes // try false as well
-        time)
+        time,
+    )
     time_dimension = routing.GetDimensionOrDie(time)
     # Add time window constraints for each location except depot
     # and 'copy' the slack var in the solution object (aka Assignment) to print it
-    for location_idx, time_window in enumerate(data['time_windows']):
+    for location_idx, time_window in enumerate(data["time_windows"]):
         if location_idx == 0:
             continue
         index = manager.NodeToIndex(location_idx)
@@ -215,38 +147,39 @@ def add_time_window_constraints(routing, manager, data, time_evaluator_index):
         routing.AddToAssignment(time_dimension.SlackVar(index))
     # Add time window constraints for each vehicle start node
     # and 'copy' the slack var in the solution object (aka Assignment) to print it
-    for vehicle_id in range(data['num_vehicles']):
+    for vehicle_id in range(data["num_vehicles"]):
         index = routing.Start(vehicle_id)
-        time_dimension.CumulVar(index).SetRange(data['time_windows'][0][0],
-                                                data['time_windows'][0][1])
+        time_dimension.CumulVar(index).SetRange(
+            data["time_windows"][0][0], data["time_windows"][0][1]
+        )
         routing.AddToAssignment(time_dimension.SlackVar(index))
         # Warning: Slack var is not defined for vehicle's end node
-        #routing.AddToAssignment(time_dimension.SlackVar(self.routing.End(vehicle_id)))
+        # routing.AddToAssignment(time_dimension.SlackVar(self.routing.End(vehicle_id)))
 
 
 # [START solution_printer]
 def print_solution(manager, routing, assignment):  # pylint:disable=too-many-locals
     """Prints assignment on console"""
-    print(f'Objective: {assignment.ObjectiveValue()}')
-    time_dimension = routing.GetDimensionOrDie('Time')
-    capacity_dimension = routing.GetDimensionOrDie('Capacity')
+    print(f"Objective: {assignment.ObjectiveValue()}")
+    time_dimension = routing.GetDimensionOrDie("Time")
+    capacity_dimension = routing.GetDimensionOrDie("Capacity")
     total_distance = 0
     total_load = 0
     total_time = 0
 
-    routes=[]
+    routes = []
     for vehicle_id in range(manager.GetNumberOfVehicles()):
         index = routing.Start(vehicle_id)
-        print(f'Route for vehicle {vehicle_id}:')
-        route=[]
+        print(f"Route for vehicle {vehicle_id}:")
+        route = []
         while not routing.IsEnd(index):
             node_index = manager.IndexToNode(index)
-            print(f'{node_index}->', end='')
+            print(f"{node_index}->", end="")
             route.append(lat_longs[node_index])
             index = assignment.Value(routing.NextVar(index))
-        print(f'{manager.IndexToNode(index)}')
+        print(f"{manager.IndexToNode(index)}")
         route.append(lat_longs[manager.IndexToNode(index)])
-        if(len(route)>2):
+        if len(route) > 2:
             routes.append(route)
     print(routes)
 
@@ -299,8 +232,9 @@ def main():
 
     # Create the routing index manager.
     # [START index_manager]
-    manager = pywrapcp.RoutingIndexManager(data['num_locations'],
-                                           data['num_vehicles'], data['depot'])
+    manager = pywrapcp.RoutingIndexManager(
+        data["num_locations"], data["num_vehicles"], data["depot"]
+    )
     # [END index_manager]
 
     # Create Routing Model.
@@ -311,7 +245,8 @@ def main():
     # Define weight of each edge.
     # [START transit_callback]
     distance_evaluator_index = routing.RegisterTransitCallback(
-        partial(create_distance_evaluator(data), manager))
+        partial(create_distance_evaluator(data), manager)
+    )
     # [END transit_callback]
 
     # Define cost of each arc.
@@ -322,14 +257,16 @@ def main():
     # Add Capacity constraint.
     # [START capacity_constraint]
     demand_evaluator_index = routing.RegisterUnaryTransitCallback(
-        partial(create_demand_evaluator(data), manager))
+        partial(create_demand_evaluator(data), manager)
+    )
     add_capacity_constraints(routing, data, demand_evaluator_index)
     # [END capacity_constraint]
 
     # Add Time Window constraint.
     # [START time_constraint]
     time_evaluator_index = routing.RegisterTransitCallback(
-        partial(create_time_evaluator(data), manager))
+        partial(create_time_evaluator(data), manager)
+    )
     add_time_window_constraints(routing, manager, data, time_evaluator_index)
     # [END time_constraint]
 
@@ -337,9 +274,11 @@ def main():
     # [START parameters]
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
     search_parameters.first_solution_strategy = (
-        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
+        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+    )
     search_parameters.local_search_metaheuristic = (
-        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
+        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+    )
     search_parameters.time_limit.FromSeconds(100)
     search_parameters.log_search = False
     # [END parameters]
@@ -354,10 +293,10 @@ def main():
     if solution:
         print_solution(manager, routing, solution)
     else:
-        print('No solution found!')
+        print("No solution found!")
     # [END print_solution]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
 # [END program]

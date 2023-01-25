@@ -10,6 +10,7 @@ class Geocoding:
         self.port2 = port2
         self.result = []
         self.dist_matrix = []
+        self.dur_matrix = []
 
     @staticmethod
     def generate_address_pool(address):
@@ -69,24 +70,24 @@ class Geocoding:
         bang_coord = [12.97674656, 77.57527924]
         dist_y = ((lat - bang_coord[0]) * 20004) / 180
         dist_x = ((long - bang_coord[1]) * 40075) / 360
-        dist = (dist_x ** 2 + dist_y ** 2) ** 0.5
+        dist = (dist_x**2 + dist_y**2) ** 0.5
         return dist
 
     def remove_coords(self):
         new_result = []
         for addr in self.result:
-            if(self.calc_distance(addr['latitude'], addr['longitude']) <= 20):
+            if self.calc_distance(addr["latitude"], addr["longitude"]) <= 20:
                 new_result.append(addr)
         self.result = new_result
 
-
-    def distance_matrix(self):
+    def distance_duraton_matrix(self):
         coord_str = ""
         for addr in self.result:
-            coord_str += str(addr['longitude']) + "," + str(addr['latitude']) + ";"
+            coord_str += str(addr["longitude"]) + "," + str(addr["latitude"]) + ";"
         coord_str = coord_str[:-1]
-        url = f'http://localhost:{self.port2}/table/v1/driving/' + coord_str
-        r = requests.get(url, params={'annotations': 'distance'})
+        url = f"http://localhost:{self.port2}/table/v1/driving/" + coord_str
+        r = requests.get(url, params={"annotations": "distance,duration"})
         r = r.json()
-        self.dist_matrix = r['distances']
-        return self.dist_matrix
+        self.dist_matrix = r["distances"]
+        self.dur_matrix = r["durations"]
+        return self.dist_matrix, self.dur_matrix
