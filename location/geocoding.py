@@ -5,6 +5,7 @@ from multiprocessing import Pool
 
 class Geocoding:
     def __init__(self, bing_api_key, address_df):
+        # print("API-KEY:______________________"+ str(bing_api_key))
         self.bing_api_key = bing_api_key
         self.address_df = address_df
         self.result = []
@@ -77,6 +78,8 @@ class Geocoding:
         for addr in self.result:
             if self.calc_distance(addr["latitude"], addr["longitude"]) <= 20:
                 new_result.append(addr)
+
+        # print(new_result)
         self.result = new_result
 
     def distance_duraton_matrix(self):

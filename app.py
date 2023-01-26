@@ -219,9 +219,14 @@ def coordinates():
         return jsonify(res), 200
 
 
-@app.route("/post/admin/genmap", methods=["GET", "POST"])
+@app.route("/post/admin/start", methods=["GET", "POST"])
 def gen_map():
     if request.method == "POST":
+        if "admin_id" not in request.get_json():
+            return jsonify({"message": "Admin id not received"})
+        if "hub_node" not in request.get_json():
+            return jsonify({"message": "Hub node not received"})
+
         admin_id = request.get_json()["admin_id"]
         admin = Admin.query.get_or_404(admin_id)
         # print(admin_id)
@@ -249,6 +254,13 @@ def gen_map():
                 driver_map.append(input_map[loc])
             final_output.append(driver_map)
         admin.output_map = json.dumps(final_output)
+
+        drivers = Driver.query.filter_by(admin_id=admin_id).all()
+        for route, driver in zip (final_output, drivers):
+                for point in route: 
+                    point["delivered"] = False
+                driver.route = json.dumps(route)
+            
         db.session.commit()
         return jsonify(final_output), 200
 

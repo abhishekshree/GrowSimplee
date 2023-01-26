@@ -109,7 +109,7 @@ class PathGen:
         # Add time window constraints for each location except depot
         # and 'copy' the slack var in the solution object (aka Assignment) to print it
         for location_idx, time_window in enumerate(data["time_windows"]):
-            if location_idx == 0:
+            if location_idx == data["depot"]:
                 continue
             index = manager.NodeToIndex(location_idx)
             time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
@@ -119,7 +119,7 @@ class PathGen:
         for vehicle_id in range(data["num_vehicles"]):
             index = routing.Start(vehicle_id)
             time_dimension.CumulVar(index).SetRange(
-                data["time_windows"][0][0], data["time_windows"][0][1]
+                data["time_windows"][data['depot']][0], data["time_windows"][data['depot']][1]
             )
             routing.AddToAssignment(time_dimension.SlackVar(index))
             # Warning: Slack var is not defined for vehicle's end node
