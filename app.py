@@ -22,6 +22,8 @@ app.config["SQLALCHEMY_DATABASE_URI"] = Variables.databaseURI
 db.init_app(app)
 
 
+
+
 class Admin(db.Model):
     __tablename__ = "admin"
     id = db.Column(db.String, primary_key=True)
@@ -259,7 +261,7 @@ def gen_map():
         for route, driver in zip (final_output, drivers):
                 for point in route: 
                     point["delivered"] = False
-                driver.route = json.dumps(route)
+                driver.path = json.dumps(route)
             
         db.session.commit()
         return jsonify(final_output), 200
@@ -301,6 +303,14 @@ def get_admin_input():
     map_data = admin.input_map if admin.input_map else "[]"
     return jsonify(map_data), 200
 
+@app.route("/get/driver/path", methods=["GET", "POST"])
+def get_driver_path():
+    if "driver_id" not in request.args:
+        return jsonify({"message": "Driver id not provided"})
+    driver_id = request.args.get("driver_id")
+    driver = Driver.query.get_or_404(driver_id)
+    path = driver.path if driver.path else "[]"
+    return jsonify(path), 200
 
 @app.route("/get/admins", methods=["GET", "POST"])  # returns all admins
 def get_admins():
