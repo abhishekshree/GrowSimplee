@@ -11,6 +11,9 @@ services:
       - "osrm:osrm"
     environment:
       - OSRM=http://osrm:5000
+    volumes:
+      - ./instance/gs.db:/app/instance/gs.db
+      - .:/app
     depends_on:
       - osrm
   osrm:

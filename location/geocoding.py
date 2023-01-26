@@ -4,10 +4,9 @@ from multiprocessing import Pool
 
 
 class Geocoding:
-    def __init__(self, bing_api_key, address_df, port2):
+    def __init__(self, bing_api_key, address_df):
         self.bing_api_key = bing_api_key
         self.address_df = address_df
-        self.port2 = port2
         self.result = []
         self.dist_matrix = []
         self.dur_matrix = []

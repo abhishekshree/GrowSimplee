@@ -7,7 +7,7 @@ load_dotenv(find_dotenv())
 
 @dataclass(frozen=True)
 class Variables:
-    bingAPIKey: str = os.getenv("BING_API_KEY")
+    bingAPIKey: str = 'Aj0kdjJUmR5qY-2sgW5uopGoXVWnXDKIAutHIg6e1xyhB-pia3spmJ8jEB1z_vZD'
     uploadFolder: str = "data/upload/"
     databaseURI: str = "sqlite:///gs.db"
     debug: bool = True
@@ -16,4 +16,5 @@ class Variables:
     port: int = 5050
     # port: int = 6969
     port2: int = 5000
-    osrm: str = os.environ["OSRM"]
+    # osrm: str = os.environ["OSRM"]
+    osrm: str = "http://osrm:5000"

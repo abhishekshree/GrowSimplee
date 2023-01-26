@@ -217,25 +217,27 @@ def coordinates():
 
 @app.route("/post/admin/genmap", methods=["GET", "POST"])
 def gen_map():
-    admin_id = request.args.get("admin_id")
-    admin = Admin.query.get_or_404(admin_id)
-    input_map = json.loads(admin.input_map)
-    num_drivers = admin.num_drivers
-    print(input_map)
-    idx_map = []
-    for i in range(0, len(input_map)):
-        idx_map.append({
-            "latitude": input_map[i]["latitude"],
-            "longitude": input_map[i]["longitude"],
-        })
-    
-    num_drivers = request.args.get("num_drivers")
-    hub_node = request.args.get("hub_node")
+    if request.method == "POST":
+        admin_id = request.get_json()["admin_id"]
+        admin = Admin.query.get_or_404(admin_id)
+        # print(admin_id)
+        input_map = json.loads(admin.input_map)
+        num_drivers = admin.num_drivers
+        # print(input_map)
+        idx_map = []
+        for i in range(0, len(input_map)):
+            idx_map.append({
+                "latitude": input_map[i]["latitude"],
+                "longitude": input_map[i]["longitude"],
+            })
+        
+        # num_drivers = request.args.get("num_drivers")
+        hub_node = int(request.get_json()["hub_node"])
 
-    pg = PathGen(idx_map, num_drivers, hub_node)
-    pg.remove_coords()
-    output_map = pg.get_output_map()
-    return jsonify(output_map), 200
+        pg = PathGen(idx_map, num_drivers, hub_node)
+        pg.remove_coords()
+        output_map = pg.get_output_map()
+        return jsonify(output_map), 200
 
 
 # db-related routes
