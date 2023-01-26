@@ -44,6 +44,8 @@ class PathGen:
             for j in range(0, len(self.distance_matrix)):
                 self.distance_matrix[i][j] = int(self.distance_matrix[i][j])
                 self.duration_matrix[i][j] = int(self.duration_matrix[i][j]) + 300
+        
+        return self.distance_matrix, self.duration_matrix
 
     def create_data_model(self):
         data = {}
@@ -60,14 +62,14 @@ class PathGen:
         data["depot"] = self.hub_node
         return data
 
-    def create_distance_evaluator(data):
+    def create_distance_evaluator(self, data):
         _distances = data["distance"]
         def distance_evaluator(manager, from_node, to_node):
             return _distances[manager.IndexToNode(from_node)][manager.IndexToNode(to_node)]
         return distance_evaluator
 
 
-    def create_demand_evaluator(data):
+    def create_demand_evaluator(self, data):
         _demands = data["demands"]
         def demand_evaluator(manager, node):
             """Returns the demand of the current node"""
@@ -75,7 +77,7 @@ class PathGen:
         return demand_evaluator
 
 
-    def add_capacity_constraints(routing, data, demand_evaluator_index):
+    def add_capacity_constraints(self, routing, data, demand_evaluator_index):
         capacity = "Capacity"
         routing.AddDimension(
             demand_evaluator_index,
@@ -85,14 +87,14 @@ class PathGen:
             capacity,
         )
 
-    def create_time_evaluator(data):
+    def create_time_evaluator(self, data):
         _total_time = data["time"]
         def time_evaluator(manager, from_node, to_node):
             """Returns the total time between the two nodes"""
             return _total_time[manager.IndexToNode(from_node)][manager.IndexToNode(to_node)]
         return time_evaluator
 
-    def add_time_window_constraints(routing, manager, data, time_evaluator_index):
+    def add_time_window_constraints(self, routing, manager, data, time_evaluator_index):
         time = "Time"
         #TODO: check horizon whether valid to keep constant or not
         horizon = 15000
@@ -142,6 +144,9 @@ class PathGen:
     def get_output_map(self):
         self.distance_duraton_matrix()
         data = self.create_data_model()
+        print(data["num_locations"])
+        print(data["num_vehicles"])
+        print(data["depot"])
         manager = pywrapcp.RoutingIndexManager(
             data["num_locations"], data["num_vehicles"], data["depot"]
         )

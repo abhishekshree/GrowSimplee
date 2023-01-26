@@ -108,14 +108,18 @@ def put_input_map(file, admin_id):
 
 
 def generate_drivers(admin_id, n):
-    initial_drivers = len(Driver.query.filter(Driver.id.startswith(admin_id)).all())
-    if initial_drivers < n:
-        for i in range(1, 1 + n + initial_drivers):
-            driver = Driver(
-                id=str(admin_id) + "_" + str(initial_drivers + i), admin_id=admin_id
-            )
-            db.session.add(driver)
-        db.session.commit()
+    inital_drivers = Driver.query.filter(Driver.id.startswith(admin_id)).all()
+    for driver in inital_drivers:
+        db.session.delete(driver)
+    for i in range(1, 1 + n):
+        driver = Driver(
+            id=str(admin_id) + "_" + str(i), admin_id=admin_id
+        )
+        db.session.add(driver)
+    admin = Admin.query.get_or_404(admin_id)
+    admin.num_drivers = n
+    db.session.commit()
+    # print(len(Driver.query.filter(Driver.id.startswith(admin_id)).all()))
 
 
 @app.route(
@@ -222,7 +226,7 @@ def gen_map():
         admin = Admin.query.get_or_404(admin_id)
         # print(admin_id)
         input_map = json.loads(admin.input_map)
-        num_drivers = admin.num_drivers
+        num_drivers = int(admin.num_drivers)
         # print(input_map)
         idx_map = []
         for i in range(0, len(input_map)):
@@ -233,9 +237,10 @@ def gen_map():
         
         # num_drivers = request.args.get("num_drivers")
         hub_node = int(request.get_json()["hub_node"])
-
+        print("generate path")
         pg = PathGen(idx_map, num_drivers, hub_node)
         pg.remove_coords()
+        print("Enter output")
         output_map = pg.get_output_map()
         return jsonify(output_map), 200
 
