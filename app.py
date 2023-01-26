@@ -242,7 +242,15 @@ def gen_map():
         pg.remove_coords()
         print("Enter output")
         output_map = pg.get_output_map()
-        return jsonify(output_map), 200
+        final_output = []
+        for driver_path in output_map:
+            driver_map = []
+            for loc in driver_path:
+                driver_map.append(input_map[loc])
+            final_output.append(driver_map)
+        admin.output_map = json.dumps(final_output)
+        db.session.commit()
+        return jsonify(final_output), 200
 
 
 # db-related routes
