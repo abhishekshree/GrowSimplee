@@ -1,5 +1,6 @@
 Flask==2.2.2
 flask_sqlalchemy==3.0.2
+flask-cors==3.0.10
 geocoder==1.38.1
 ortools==9.5.2237
 pandas==1.4.2

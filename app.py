@@ -8,6 +8,8 @@ import os
 from flask_sqlalchemy import SQLAlchemy
 import uuid
 import json
+from flask_cors import CORS, cross_origin
+
 
 
 UPLOAD_FOLDER = Variables.uploadFolder
@@ -20,18 +22,18 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["SQLALCHEMY_DATABASE_URI"] = Variables.databaseURI
 
 db.init_app(app)
-
+cors = CORS(app)
 
 
 
 class Admin(db.Model):
     __tablename__ = "admin"
-    id = db.Column(db.String, primary_key=True)
-    input_map = db.Column(db.Text)
-    num_drivers = db.Column(db.Integer)
-    output_map = db.Column(db.Text)
-    date = db.Column(db.DateTime, default=datetime.utcnow)
-    dynamic_points = db.Column(db.Text)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    input_map = db.Column(db.Text, default="[]")
+    num_drivers = db.Column(db.Integer, default=0)
+    output_map = db.Column(db.Text, default="[]")
+    # date = db.Column(db.DateTime, default=datetime.utcnow)
+    dynamic_points = db.Column(db.Text, default="[]")
 
     def get_input_map(self):
         return json.loads(self.input_map)
@@ -45,20 +47,9 @@ class Admin(db.Model):
     def put_output_map(self, output_map):
         self.output_map = json.dumps(output_map)
 
-    def __init__(
-        self,
-        id,
-        input_map=None,
-        num_drivers=None,
-        output_map=None,
-        dynamic_points=None,
-    ):
-        self.id = id
-        self.put_input_map(input_map)
-        self.num_drivers = num_drivers
-        self.put_output_map(output_map)
-        self.dynamic_points = dynamic_points
-
+    
+        
+        
     def __repr__(self):
         return f"Admin id: {self.id}"
 
@@ -148,7 +139,7 @@ def input():
         put_input_map(admin_id=admin_id, file=file)
         generate_drivers(admin_id=admin_id, n=n)
 
-        return {"message": "Input successful"}
+        return {"message": "Input successful", "map": Admin.query.get_or_404(admin_id).input_map}
 
 
 @app.route(
@@ -221,7 +212,7 @@ def coordinates():
         return jsonify(res), 200
 
 
-@app.route("/post/admin/start", methods=["GET", "POST"])
+@app.route("/post/admin/start", methods=["POST"])
 def gen_map():
     if request.method == "POST":
         if "admin_id" not in request.get_json():
@@ -249,6 +240,10 @@ def gen_map():
         pg.remove_coords()
         print("Enter output")
         output_map = pg.get_output_map()
+
+        print("output map", output_map)
+        # return jsonify(output_map)
+        
         final_output = []
         for driver_path in output_map:
             driver_map = []
@@ -272,12 +267,15 @@ def gen_map():
 def post_admin():
     # get a json and store it in the database
     if request.method == "POST":
-        admin_id = str(uuid.uuid4())
-        admin = Admin(id=admin_id)
+        # admin_id = str(uuid.uuid4())
+      
+        admin = Admin()
+
 
         db.session.add(admin)
         db.session.commit()
-        return jsonify({"message": "Admin successfully added", "id": admin_id}), 200
+        return jsonify({"message": "Admin successfully created", "id": admin.id})
+        # return jsonify({"message": "Admin successfully added", "id": admin_id}), 200
 
 
 @app.route("/get/admin/output", methods=["GET"])  # returns the output map of the admin
