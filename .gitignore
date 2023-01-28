@@ -130,3 +130,5 @@ dmypy.json
 
 config/.env
 osrm/
+
+example_response.json
