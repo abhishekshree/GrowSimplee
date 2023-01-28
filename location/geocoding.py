@@ -43,7 +43,7 @@ class Geocoding:
 
         p = Pool()
         results = p.map(self.geoloc, address_pool)
-        print("results --->",results)
+        # print("results --->",results)
         lats = []
         longs = []
         for i in range(0, len(addrs)):
@@ -57,8 +57,8 @@ class Geocoding:
             self.result.append(
                 {
                     "address": addrs[i],
-                    "latitude": lats[i],
-                    "longitude": longs[i],
+                    "lat": lats[i],
+                    "lng": longs[i],
                     "location": location[i],
                     "AWB": str(AWB[i]),
                     "name": names[i],

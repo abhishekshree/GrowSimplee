@@ -183,8 +183,8 @@ def add_dynamic_point():
         result = Geocoding(Variables.bingAPIKey, address).generate()
 
         point = data
-        point["latitude"] = result[0]["lat"]
-        point["longitude"] = result[0]["lng"]
+        point["latitude"] = result[0]["latitude"]
+        point["longitude"] = result[0]["longitude"]
 
         d_points = None
         if not admin.dynamic_points:
@@ -235,13 +235,14 @@ def gen_map():
         # print(admin_id)
         input_map = json.loads(admin.input_map)
         num_drivers = int(admin.num_drivers)
-        # print(input_map)
+        print(input_map)
         idx_map = []
         for i in range(0, len(input_map)):
             idx_map.append({
-                "latitude": input_map[i]["lat"],
-                "longitude": input_map[i]["lng"],
+                "latitude": input_map[i]["latitude"],
+                "longitude": input_map[i]["longitude"],
             })
+        
         
         # num_drivers = request.args.get("num_drivers")
         hub_node = int(request.get_json()["hub_node"])
