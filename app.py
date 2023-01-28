@@ -165,6 +165,77 @@ def input():
 
         return {"message": "Input successful", "map": Admin.query.get_or_404(admin_id).input_map}
 
+
+@app.route(
+    "/post/admin/dynamicpoint", methods=["POST"]
+)  # Allows admin to add a dynamic point
+def add_dynamic_point():
+    if request.method == "POST":
+        if "admin_id" not in request.get_json():
+            return jsonify({"message": "Admin id not received"})
+
+        if "data" not in request.get_json():
+            return jsonify({"message": "Data not received"})
+
+        if "address" not in request.get_json()["data"]:
+            return jsonify({"message": "Address not received"})
+
+        admin_id = request.get_json()["admin_id"]
+        admin = Admin.query.get_or_404(admin_id)
+        print(admin_id)
+
+        data = request.get_json()["data"]
+        address = pd.read_json(json.dumps([data]))
+        result = Geocoding(Variables.bingAPIKey, address).generate()
+
+        point = data
+        point["latitude"] = result[0]["lat"]
+        point["longitude"] = result[0]["lng"]
+
+        d_points = None
+        if not admin.dynamic_points:
+            d_points = []
+        else:
+            d_points = json.loads(admin.dynamic_points)
+        d_points.append(point)
+
+        admin.dynamic_points = json.dumps(d_points)
+
+        db.session.commit()
+        return jsonify({"message": "Point successfully added"})
+
+
+@app.route("/get/admin/dynamicpoints")  # returns the dynamic points added by an admin
+def get_dynamic_points():
+    if "admin_id" not in request.args:
+        return jsonify({"message": "Admin id not specified"})
+    admin_id = request.args.get("admin_id")
+    admin = Admin.query.get_or_404(admin_id)
+    # dynamic_point=json.loads(admin.dynamic_points)
+    # print(dynamic_point)
+    return (
+        jsonify(json.loads(admin.dynamic_points))
+        if admin.dynamic_points
+        else jsonify([])
+    )
+
+
+@app.route("/")
+def hello():
+    return "hello"
+
+
+@app.route("/get/coordinates", methods=["GET", "POST"])
+def coordinates():
+    # get coordinates from the dataframe and return it as a json
+    if request.method == "GET":
+        # TODO: what filename?
+        data_df = pd.read_excel(UPLOAD_FOLDER + "input.xlsx")
+        g = Geocoding(Variables.bingAPIKey, data_df)
+        res = g.generate()
+        return jsonify(res), 200
+
+
 @app.route("/post/admin/start", methods=["POST"])
 def gen_map():
     if request.method == "POST":
@@ -182,8 +253,8 @@ def gen_map():
         idx_map = []
         for i in range(0, len(input_map)):
             idx_map.append({
-                "latitude": input_map[i]["latitude"],
-                "longitude": input_map[i]["longitude"],
+                "latitude": input_map[i]["lat"],
+                "longitude": input_map[i]["lng"],
             })
         
         # num_drivers = request.args.get("num_drivers")
@@ -334,7 +405,26 @@ def get_driver_path():
     path = driver.path if driver.path else "[]"
     return jsonify(path), 200
 
+@app.route("/get/admins", methods=["GET", "POST"])  # returns all admins
+def get_admins():
+    admins = Admin.query.all()
+    out = []
+    for admin in admins:
+        out.append(admin.id)
+    return out, 200
 
+@app.route(
+    "/get/admin/dayStarted", methods=["GET"]
+)
+def get_all_admin_daystarted():
+    admins = Admin.query.all()
+    admin_daystarted = {}
+    for admin in admins:
+        if(len(eval(admin.output_map)) > 0):
+            admin_daystarted[admin.id] = True
+        else:
+            admin_daystarted[admin.id] = False
+    return jsonify(admin_daystarted), 200
 
 @app.route("/get/drivers", methods=["GET", "POST"])  # returns all drivers
 def get_drivers():
@@ -345,6 +435,18 @@ def get_drivers():
     return out, 200
 
 
+@app.route(
+    "/get/admin/drivers", methods=["GET"]
+)  # returns all drivers for a particular admin
+def get_drivers_for_admin():
+    if "admin_id" not in request.args:
+        return jsonify({"message": "Admin id not provided"})
+    out = []
+
+    drivers = Driver.query.filter(Driver.admin_id == request.args["admin_id"]).all()
+    for driver in drivers:
+        out.append(driver.id)
+    return out, 200
 
 
 if __name__ == "__main__":
