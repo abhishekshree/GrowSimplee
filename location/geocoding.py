@@ -43,6 +43,7 @@ class Geocoding:
 
         p = Pool()
         results = p.map(self.geoloc, address_pool)
+        print("results --->",results)
         lats = []
         longs = []
         for i in range(0, len(addrs)):

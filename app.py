@@ -130,13 +130,7 @@ def post_admin():
         return jsonify({"message": "Admin successfully created", "id": admin.id})
         # return jsonify({"message": "Admin successfully added", "id": admin_id}), 200
 
-@app.route("/get/admins", methods=["GET", "POST"])  # returns all admins
-def get_admins():
-    admins = Admin.query.all()
-    out = ""
-    for admin in admins:
-        out += f"Admin ID:\t{admin.id}\n"
-    return out, 200
+
 
 
 @app.route(
@@ -225,15 +219,7 @@ def hello():
     return "hello"
 
 
-@app.route("/get/coordinates", methods=["GET", "POST"])
-def coordinates():
-    # get coordinates from the dataframe and return it as a json
-    if request.method == "GET":
-        # TODO: what filename?
-        data_df = pd.read_excel(UPLOAD_FOLDER + "input.xlsx")
-        g = Geocoding(Variables.bingAPIKey, data_df)
-        res = g.generate()
-        return jsonify(res), 200
+
 
 
 @app.route("/post/admin/start", methods=["POST"])
@@ -321,63 +307,11 @@ def get_admin_input():
     map_data = admin.input_map if admin.input_map else "[]"
     return jsonify(map_data), 200
 
-@app.route(
-    "/post/admin/dynamicpoint", methods=["POST"]
-)  # Allows admin to add a dynamic point
-def add_dynamic_point():
-    if request.method == "POST":
-        if "admin_id" not in request.get_json():
-            return jsonify({"message": "Admin id not received"})
-
-        if "data" not in request.get_json():
-            return jsonify({"message": "Data not received"})
-
-        if "address" not in request.get_json()["data"]:
-            return jsonify({"message": "Address not received"})
-
-        admin_id = request.get_json()["admin_id"]
-        admin = Admin.query.get_or_404(admin_id)
-        print(admin_id)
-
-        data = request.get_json()["data"]
-        address = pd.read_json(json.dumps([data]))
-        result = Geocoding(Variables.bingAPIKey, address).generate()
-
-        point = data
-        point["latitude"] = result[0]["latitude"]
-        point["longitude"] = result[0]["longitude"]
-
-        d_points = None
-        if not admin.dynamic_points:
-            d_points = []
-        else:
-            d_points = json.loads(admin.dynamic_points)
-        d_points.append(point)
-
-        admin.dynamic_points = json.dumps(d_points)
-
-        db.session.commit()
-        return jsonify({"message": "Point successfully added"})
 
 
-@app.route("/get/admin/dynamicpoints")  # returns the dynamic points added by an admin
-def get_dynamic_points():
-    if "admin_id" not in request.args:
-        return jsonify({"message": "Admin id not specified"})
-    admin_id = request.args.get("admin_id")
-    admin = Admin.query.get_or_404(admin_id)
-    # dynamic_point=json.loads(admin.dynamic_points)
-    # print(dynamic_point)
-    return (
-        jsonify(json.loads(admin.dynamic_points))
-        if admin.dynamic_points
-        else jsonify([])
-    )
 
 
-@app.route("/")
-def hello():
-    return "hello"
+
 
 
 @app.route("/get/coordinates", methods=["GET", "POST"])
@@ -435,18 +369,7 @@ def get_drivers():
     return out, 200
 
 
-@app.route(
-    "/get/admin/drivers", methods=["GET"]
-)  # returns all drivers for a particular admin
-def get_drivers_for_admin():
-    if "admin_id" not in request.args:
-        return jsonify({"message": "Admin id not provided"})
-    out = []
 
-    drivers = Driver.query.filter(Driver.admin_id == request.args["admin_id"]).all()
-    for driver in drivers:
-        out.append(driver.id)
-    return out, 200
 
 
 if __name__ == "__main__":
