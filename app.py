@@ -10,6 +10,8 @@ import uuid
 import json
 from flask_cors import CORS, cross_origin
 import requests
+import sys
+import geocoder
 
 
 UPLOAD_FOLDER = Variables.uploadFolder
@@ -34,6 +36,7 @@ class Admin(db.Model):
     output_map = db.Column(db.Text, default="[]")
     # date = db.Column(db.DateTime, default=datetime.utcnow)
     dynamic_point = db.Column(db.Text)
+    unrouted_points = db.Column(db.Text, default= '[]')
 
     def get_input_map(self):
         return json.loads(self.input_map)
@@ -92,6 +95,11 @@ def get_undelivered_points(driver_id):
         if point["delivered"] == False:
             undelivered_points.append(point)
     return undelivered_points
+
+def get_geocoding_for(point):
+    g = geocoder.bing(point["address"], key=Variables.bingAPIKey)
+    return g.latlng
+
 
 def distance_between(point1, point2):
     long1 = point1["longitude"]
@@ -224,6 +232,8 @@ def post_admin():
 )  # takes admin id, map and number of drivers. Also updates driver db with the required number of drivers
 def input():
     # get input as a dataframe and store it in data/ folder
+   
+
     if request.method == "POST":
         form = request.form
 
@@ -238,12 +248,20 @@ def input():
             return jsonify({"message": "Allowed file types are xlsx, xls, csv"}), 400
 
         admin_id = form["admin_id"]
+        admin = Admin.query.get_or_404(admin_id)
         n = int(form["no_of_drivers"])
+        if (len(sys.argv)>1):
+            print("in chud gaya mode")
+            preloaded = pd.read_excel("Geocode.xlsx")
+            preloaded=preloaded.to_dict()
+            admin.input_map = json.dumps(preloaded)
+            return jsonify({"message": "Input successful", "map": Admin.query.get_or_404(admin_id).input_map, "debug":True})
+
 
         put_input_map(admin_id=admin_id, file=file)
         generate_drivers(admin_id=admin_id, n=n)
 
-        return {"message": "Input successful", "map": Admin.query.get_or_404(admin_id).input_map}
+        return jsonify({"message": "Input successful", "map": json.loads(Admin.query.get_or_404(admin_id).input_map)})
 
 
 @app.route(
@@ -254,7 +272,7 @@ def add_dynamic_point():
         if "admin_id" not in request.get_json():
             return jsonify({"message": "Admin id not received"})
 
-        if "data" not in request.get_json():
+        if "point" not in request.get_json():
             return jsonify({"message": "Data not received"})
 
         if "address" not in request.get_json()["data"]:
@@ -264,13 +282,14 @@ def add_dynamic_point():
         admin = Admin.query.get_or_404(admin_id)
         print(admin_id)
 
-        data = request.get_json()["data"]
-        address = pd.read_json(json.dumps([data]))
-        result = Geocoding(Variables.bingAPIKey, address).generate()
+        point = request.get_json()["point"]
+        latitude, longitude = get_geocoding_for(point)
+        
+        # address = pd.read_json(json.dumps([data]))
+        # result = Geocoding(Variables.bingAPIKey, address).generate()
 
-        point = data
-        point["latitude"] = result[0]["latitude"]
-        point["longitude"] = result[0]["longitude"]
+        point["latitude"] = latitude
+        point["longitude"] = longitude
 
 
         admin.dynamic_point = json.dumps(point)       
@@ -297,7 +316,7 @@ def get_dynamic_point():
 
 @app.route("/")
 def hello():
-    return "hello"
+    return "LEN:   "+str(len(sys.argv))
 
 
 @app.route("/post/admin/start", methods=["POST"])
@@ -311,6 +330,9 @@ def gen_map():
         admin_id = request.get_json()["admin_id"]
         admin = Admin.query.get_or_404(admin_id)
         input_map = json.loads(admin.input_map)
+        # return jsonify((input_map))
+
+
         num_drivers = int(admin.num_drivers)
         print(input_map)
         idx_map = []
@@ -325,7 +347,9 @@ def gen_map():
         pg = PathGen(idx_map, num_drivers, hub_node)
         pg.remove_coords()
         print("Enter output")
-        output_map = pg.get_output_map()
+        output_map, unrouted_points = pg.get_output_map()
+        admin.unrouted_points = json.dumps(unrouted_points)
+
 
         print("output map", output_map)
         
@@ -354,8 +378,15 @@ def get_admin():
     admin_id = request.args.get("admin_id")
 
     admin = Admin.query.get_or_404(admin_id)
-    map_data = admin.output_map if admin.output_map else "[]"
+    map_data = json.loads(admin.output_map) if admin.output_map else []
     return jsonify(map_data), 200
+
+@app.route("/get/admin/unrouted", methods=["GET", "POST"])  
+def get_unrouted_points():
+    if "admin_id" not in request.args:
+        return jsonify({"message": "Admin id not provided"})
+    return jsonify(json.loads(Admin.query.get_or_404(request.args.get("admin_id")).unrouted_points))
+
 
 @app.route(
     "/get/admin/drivers", methods=["GET"]
@@ -363,11 +394,11 @@ def get_admin():
 def get_drivers_for_admin():
     if "admin_id" not in request.args:
         return jsonify({"message": "Admin id not provided"})
-    out = ""
+    out = []
 
     drivers = Driver.query.filter(Driver.admin_id == request.args["admin_id"]).all()
     for driver in drivers:
-        out += ("Driver id:\t" + driver.id + "\t Admin:\t" + driver.admin_id) + "\n"
+        out.append("Driver id:\t" + driver.id + "\t Admin:\t" + driver.admin_id + "\n")
     return out
 
 
@@ -379,7 +410,7 @@ def get_admin_input():
     admin_id = request.args.get("admin_id")
 
     admin = Admin.query.get_or_404(admin_id)
-    map_data = admin.input_map if admin.input_map else "[]"
+    map_data = json.loads(admin.input_map) if admin.input_map else []
     return jsonify(map_data), 200
 
 
@@ -411,7 +442,7 @@ def get_driver_path():
         return jsonify({"message": "Driver id not provided"})
     driver_id = request.args.get("driver_id")
     driver = Driver.query.get_or_404(driver_id)
-    path = driver.path if driver.path else "[]"
+    path = json.loads(driver.path) if driver.path else []
     return jsonify(path), 200
 
 @app.route("/get/admins", methods=["GET", "POST"])  # returns all admins
@@ -475,6 +506,7 @@ if __name__ == "__main__":
     with app.app_context():
         db.create_all()
         db.session.commit()
+        print("LEN :",len(sys.argv))
     app.run(debug=Variables.debug, host=Variables.host, port=Variables.port)
 
 

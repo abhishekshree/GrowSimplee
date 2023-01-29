@@ -4,13 +4,15 @@ from multiprocessing import Pool
 
 
 class Geocoding:
-    def __init__(self, bing_api_key, address_df):
+    def __init__(self, bing_api_key, address_df=None, address=None):
         # print("API-KEY:______________________"+ str(bing_api_key))
         self.bing_api_key = bing_api_key
         self.address_df = address_df
+        self.address=address
         self.result = []
         self.dist_matrix = []
         self.dur_matrix = []
+        
 
     @staticmethod
     def generate_address_pool(address):
@@ -25,6 +27,10 @@ class Geocoding:
                 addr_pool.append(addresses[cnt:])
             cnt = cnt + 50
         return addr_pool
+    
+    def geo_loc_single(self):
+        g = geocoder.bing(self.address, key=self.bing_api_key)
+        
 
     def geoloc(self, addrs):
         g = geocoder.bing(addrs, key=self.bing_api_key, method="batch")
@@ -57,8 +63,8 @@ class Geocoding:
             self.result.append(
                 {
                     "address": addrs[i],
-                    "lat": lats[i],
-                    "lng": longs[i],
+                    "latitude": lats[i],
+                    "longitude": longs[i],
                     "location": location[i],
                     "AWB": str(AWB[i]),
                     "name": names[i],
