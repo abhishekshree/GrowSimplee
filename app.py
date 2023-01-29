@@ -25,7 +25,7 @@ db.init_app(app)
 cors = CORS(app)
 
 
-
+########DATABASES########
 class Admin(db.Model):
     __tablename__ = "admin"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -45,15 +45,10 @@ class Admin(db.Model):
         self.input_map = json.dumps(input_map)
 
     def put_output_map(self, output_map):
-        self.output_map = json.dumps(output_map)
-
-    
-        
+        self.output_map = json.dumps(output_map)  
         
     def __repr__(self):
         return f"Admin id: {self.id}"
-
-
 class Driver(db.Model):
     __tablename__ = "driver"
     id = db.Column(db.String, primary_key=True)  # admin_id + [1,num_drivers]
@@ -82,6 +77,9 @@ class Driver(db.Model):
         self.put_path(path)
         self.date = date
 
+###########################
+
+#########HELPER FUNCTIONS########
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -113,6 +111,32 @@ def generate_drivers(admin_id, n):
     admin.num_drivers = n
     db.session.commit()
     # print(len(Driver.query.filter(Driver.id.startswith(admin_id)).all()))
+################################
+
+
+###################ADMIN ROUTES####################
+
+@app.route("/post/admin/new", methods=["POST"])  # creates a new admin
+def post_admin():
+    # get a json and store it in the database
+    if request.method == "POST":
+        # admin_id = str(uuid.uuid4())
+      
+        admin = Admin()
+
+
+        db.session.add(admin)
+        db.session.commit()
+        return jsonify({"message": "Admin successfully created", "id": admin.id})
+        # return jsonify({"message": "Admin successfully added", "id": admin_id}), 200
+
+@app.route("/get/admins", methods=["GET", "POST"])  # returns all admins
+def get_admins():
+    admins = Admin.query.all()
+    out = ""
+    for admin in admins:
+        out += f"Admin ID:\t{admin.id}\n"
+    return out, 200
 
 
 @app.route(
@@ -261,23 +285,6 @@ def gen_map():
         db.session.commit()
         return jsonify(final_output), 200
 
-
-# db-related routes
-@app.route("/post/admin/new", methods=["POST"])  # creates a new admin
-def post_admin():
-    # get a json and store it in the database
-    if request.method == "POST":
-        # admin_id = str(uuid.uuid4())
-      
-        admin = Admin()
-
-
-        db.session.add(admin)
-        db.session.commit()
-        return jsonify({"message": "Admin successfully created", "id": admin.id})
-        # return jsonify({"message": "Admin successfully added", "id": admin_id}), 200
-
-
 @app.route("/get/admin/output", methods=["GET"])  # returns the output map of the admin
 def get_admin():
     if "admin_id" not in request.args:
@@ -288,6 +295,19 @@ def get_admin():
     admin = Admin.query.get_or_404(admin_id)
     map_data = admin.output_map if admin.output_map else "[]"
     return jsonify(map_data), 200
+
+@app.route(
+    "/get/admin/drivers", methods=["GET"]
+)  # returns all drivers for a particular admin
+def get_drivers_for_admin():
+    if "admin_id" not in request.args:
+        return jsonify({"message": "Admin id not provided"})
+    out = ""
+
+    drivers = Driver.query.filter(Driver.admin_id == request.args["admin_id"]).all()
+    for driver in drivers:
+        out += ("Driver id:\t" + driver.id + "\t Admin:\t" + driver.admin_id) + "\n"
+    return out
 
 
 @app.route("/get/admin/input", methods=["GET"])  # returns the output map of the admin
@@ -300,6 +320,81 @@ def get_admin_input():
     admin = Admin.query.get_or_404(admin_id)
     map_data = admin.input_map if admin.input_map else "[]"
     return jsonify(map_data), 200
+
+@app.route(
+    "/post/admin/dynamicpoint", methods=["POST"]
+)  # Allows admin to add a dynamic point
+def add_dynamic_point():
+    if request.method == "POST":
+        if "admin_id" not in request.get_json():
+            return jsonify({"message": "Admin id not received"})
+
+        if "data" not in request.get_json():
+            return jsonify({"message": "Data not received"})
+
+        if "address" not in request.get_json()["data"]:
+            return jsonify({"message": "Address not received"})
+
+        admin_id = request.get_json()["admin_id"]
+        admin = Admin.query.get_or_404(admin_id)
+        print(admin_id)
+
+        data = request.get_json()["data"]
+        address = pd.read_json(json.dumps([data]))
+        result = Geocoding(Variables.bingAPIKey, address).generate()
+
+        point = data
+        point["latitude"] = result[0]["latitude"]
+        point["longitude"] = result[0]["longitude"]
+
+        d_points = None
+        if not admin.dynamic_points:
+            d_points = []
+        else:
+            d_points = json.loads(admin.dynamic_points)
+        d_points.append(point)
+
+        admin.dynamic_points = json.dumps(d_points)
+
+        db.session.commit()
+        return jsonify({"message": "Point successfully added"})
+
+
+@app.route("/get/admin/dynamicpoints")  # returns the dynamic points added by an admin
+def get_dynamic_points():
+    if "admin_id" not in request.args:
+        return jsonify({"message": "Admin id not specified"})
+    admin_id = request.args.get("admin_id")
+    admin = Admin.query.get_or_404(admin_id)
+    # dynamic_point=json.loads(admin.dynamic_points)
+    # print(dynamic_point)
+    return (
+        jsonify(json.loads(admin.dynamic_points))
+        if admin.dynamic_points
+        else jsonify([])
+    )
+
+
+@app.route("/")
+def hello():
+    return "hello"
+
+
+@app.route("/get/coordinates", methods=["GET", "POST"])
+def coordinates():
+    # get coordinates from the dataframe and return it as a json
+    if request.method == "GET":
+        # TODO: what filename?
+        data_df = pd.read_excel(UPLOAD_FOLDER + "input.xlsx")
+        g = Geocoding(Variables.bingAPIKey, data_df)
+        res = g.generate()
+        return jsonify(res), 200
+
+
+
+
+
+##############DRIVER ROUTES#####################
 
 @app.route("/get/driver/path", methods=["GET", "POST"])
 def get_driver_path():
