@@ -9,6 +9,7 @@ class PathGen:
     def __init__(self, input_map, num_drivers, hub_node):
         self.input_map = input_map
         self.output_map = []
+        self.dropped_locs = []
         self.num_drivers = num_drivers
         self.hub_node = hub_node
         self.distance_matrix = []
@@ -43,7 +44,10 @@ class PathGen:
         for i in range(0, len(self.distance_matrix)):
             for j in range(0, len(self.distance_matrix)):
                 self.distance_matrix[i][j] = int(self.distance_matrix[i][j])
-                self.duration_matrix[i][j] = int(self.duration_matrix[i][j]) + 300
+                if(j != self.hub_node):
+                    self.duration_matrix[i][j] = int(self.duration_matrix[i][j]) + 300
+                else:
+                    self.duration_matrix[i][j] = int(self.duration_matrix[i][j])
         
         return self.distance_matrix, self.duration_matrix
 
@@ -58,8 +62,10 @@ class PathGen:
         data["demands"] = [random.randint(27, 16001) for i in range(data['num_locations'])]
         data["num_vehicles"] = self.num_drivers
         #Fixed to use the bigger bag out of the two
-        data["vehicle_capacity"] = 6400000
+        data["vehicle_capacity"] = 640000
         data["depot"] = self.hub_node
+        data['demands'][data['depot']] = 0
+        data['time_windows'][data['depot']] = (0, 15000)
         return data
 
     def create_distance_evaluator(self, data):
@@ -100,7 +106,7 @@ class PathGen:
         horizon = 15000
         routing.AddDimension(
             time_evaluator_index,
-            horizon,  # allow waiting time
+            0,  # allow waiting time
             horizon,  # maximum time per vehicle
             True,  # don't force start cumul to zero since we are giving TW to start nodes // try false as well
             time,
@@ -112,26 +118,31 @@ class PathGen:
             if location_idx == data['depot']:
                 continue
             index = manager.NodeToIndex(location_idx)
-            time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
+            # time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
+            time_dimension.SetCumulVarSoftUpperBound(index, time_window[1], Variables.time_penalty)
             routing.AddToAssignment(time_dimension.SlackVar(index))
         # Add time window constraints for each vehicle start node
         # and 'copy' the slack var in the solution object (aka Assignment) to print it
         for vehicle_id in range(data["num_vehicles"]):
             index = routing.Start(vehicle_id)
             time_dimension.CumulVar(index).SetRange(
-                data["time_windows"][data['depot']][0], data["time_windows"][data['depot']][1]
+                data["time_windows"][data['depot']][0], 
+                data["time_windows"][data['depot']][1]
             )
             routing.AddToAssignment(time_dimension.SlackVar(index))
             # Warning: Slack var is not defined for vehicle's end node
             # routing.AddToAssignment(time_dimension.SlackVar(self.routing.End(vehicle_id)))
 
-    def print_solution(self, manager, routing, assignment):
+    # TODO: return unrouted points
+    def print_solution(self, manager, routing, assignment, num_locs):
         for vehicle_id in range(manager.GetNumberOfVehicles()):
             index = routing.Start(vehicle_id)
             print(f"Route for vehicle {vehicle_id}:")
             route = []
+            points_accessed = set([])
             while not routing.IsEnd(index):
                 node_index = manager.IndexToNode(index)
+                points_accessed.add(node_index)
                 print(f"{node_index}->", end="")
                 route.append(node_index)
                 index = assignment.Value(routing.NextVar(index))
@@ -140,8 +151,12 @@ class PathGen:
             if len(route) > 2:
                 self.output_map.append(route)
 
+        for i in range(num_locs):
+            if i not in points_accessed:
+                self.unrouted_points.append(i)            
 
-    def get_output_map(self):
+
+    def solve(self, timeout):
         self.distance_duraton_matrix()
         data = self.create_data_model()
         print(data["num_locations"])
@@ -167,6 +182,10 @@ class PathGen:
         )
         self.add_time_window_constraints(routing, manager, data, time_evaluator_index)
 
+        for node in range (0, data['num_locations']):
+            if(node != data['depot']):
+                routing.AddDisjunction([manager.NodeToIndex(node)], Variables.drop_penalty)
+
         search_parameters = pywrapcp.DefaultRoutingSearchParameters()
         search_parameters.first_solution_strategy = (
             routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
@@ -174,15 +193,20 @@ class PathGen:
         search_parameters.local_search_metaheuristic = (
             routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
         )
-        search_parameters.time_limit.FromSeconds(100)
+        search_parameters.time_limit.FromSeconds(timeout)
         search_parameters.log_search = False
 
         solution = routing.SolveWithParameters(search_parameters)
 
-        # TODO: What to do if a solution is not found
         if solution:
-            self.print_solution(manager, routing, solution)
+            self.print_solution(manager, routing, solution, data['num_locations'])
+            return False
         else:
-            print("No solution found!")
+            return True
 
-        return self.output_map
+    def get_output_map(self):
+        # TODO: What to do if a solution is not found
+        intial_timeout = Variables.timeout
+        while self.solve(intial_timeout):
+            intial_timeout += 100
+        return self.output_map, self.unrouted_points

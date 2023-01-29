@@ -19,3 +19,6 @@ class Variables:
     # osrm: str = os.environ["OSRM"]
     osrm: str = "http://osrm:5000"
     GeoApifyKey: str = "295dd37df0674ff9ade5603ac2e14baf"
+    time_penalty: int = 100
+    drop_penalty: int = 1000000
+    timeout: int = 100

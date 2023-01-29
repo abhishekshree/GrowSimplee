@@ -300,9 +300,6 @@ def hello():
     return "hello"
 
 
-
-
-
 @app.route("/post/admin/start", methods=["POST"])
 def gen_map():
     if request.method == "POST":
@@ -313,7 +310,6 @@ def gen_map():
 
         admin_id = request.get_json()["admin_id"]
         admin = Admin.query.get_or_404(admin_id)
-        # print(admin_id)
         input_map = json.loads(admin.input_map)
         num_drivers = int(admin.num_drivers)
         print(input_map)
@@ -324,8 +320,6 @@ def gen_map():
                 "longitude": input_map[i]["longitude"],
             })
         
-        
-        # num_drivers = request.args.get("num_drivers")
         hub_node = int(request.get_json()["hub_node"])
         print("generate path")
         pg = PathGen(idx_map, num_drivers, hub_node)
@@ -334,7 +328,6 @@ def gen_map():
         output_map = pg.get_output_map()
 
         print("output map", output_map)
-        # return jsonify(output_map)
         
         final_output = []
         for driver_path in output_map:
