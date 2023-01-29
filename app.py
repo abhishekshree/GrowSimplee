@@ -165,8 +165,8 @@ def add_dynamic_point():
         result = Geocoding(Variables.bingAPIKey, address).generate()
 
         point = data
-        point["latitude"] = result[0]["latitude"]
-        point["longitude"] = result[0]["longitude"]
+        point["latitude"] = result[0]["lat"]
+        point["longitude"] = result[0]["lng"]
 
         d_points = None
         if not admin.dynamic_points:
@@ -229,8 +229,8 @@ def gen_map():
         idx_map = []
         for i in range(0, len(input_map)):
             idx_map.append({
-                "latitude": input_map[i]["latitude"],
-                "longitude": input_map[i]["longitude"],
+                "latitude": input_map[i]["lat"],
+                "longitude": input_map[i]["lng"],
             })
         
         # num_drivers = request.args.get("num_drivers")
@@ -313,11 +313,23 @@ def get_driver_path():
 @app.route("/get/admins", methods=["GET", "POST"])  # returns all admins
 def get_admins():
     admins = Admin.query.all()
-    out = ""
+    out = []
     for admin in admins:
-        out += f"Admin ID:\t{admin.id}\n"
+        out.append(admin.id)
     return out, 200
 
+@app.route(
+    "/get/admin/dayStarted", methods=["GET"]
+)
+def get_all_admin_daystarted():
+    admins = Admin.query.all()
+    admin_daystarted = {}
+    for admin in admins:
+        if(len(eval(admin.output_map)) > 0):
+            admin_daystarted[admin.id] = True
+        else:
+            admin_daystarted[admin.id] = False
+    return jsonify(admin_daystarted), 200
 
 @app.route("/get/drivers", methods=["GET", "POST"])  # returns all drivers
 def get_drivers():
@@ -334,12 +346,12 @@ def get_drivers():
 def get_drivers_for_admin():
     if "admin_id" not in request.args:
         return jsonify({"message": "Admin id not provided"})
-    out = ""
+    out = []
 
     drivers = Driver.query.filter(Driver.admin_id == request.args["admin_id"]).all()
     for driver in drivers:
-        out += ("Driver id:\t" + driver.id + "\t Admin:\t" + driver.admin_id) + "\n"
-    return out
+        out.append(driver.id)
+    return out, 200
 
 
 if __name__ == "__main__":
