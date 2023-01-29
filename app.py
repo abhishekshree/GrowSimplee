@@ -9,7 +9,7 @@ from flask_sqlalchemy import SQLAlchemy
 import uuid
 import json
 from flask_cors import CORS, cross_origin
-
+import requests
 
 
 UPLOAD_FOLDER = Variables.uploadFolder
@@ -33,7 +33,7 @@ class Admin(db.Model):
     num_drivers = db.Column(db.Integer, default=0)
     output_map = db.Column(db.Text, default="[]")
     # date = db.Column(db.DateTime, default=datetime.utcnow)
-    dynamic_points = db.Column(db.Text, default="[]")
+    dynamic_point = db.Column(db.Text)
 
     def get_input_map(self):
         return json.loads(self.input_map)
@@ -49,6 +49,7 @@ class Admin(db.Model):
         
     def __repr__(self):
         return f"Admin id: {self.id}"
+
 class Driver(db.Model):
     __tablename__ = "driver"
     id = db.Column(db.String, primary_key=True)  # admin_id + [1,num_drivers]
@@ -81,6 +82,91 @@ class Driver(db.Model):
 
 #########HELPER FUNCTIONS########
 
+
+
+def get_undelivered_points(driver_id):
+    driver = Driver.query.get_or_404(driver_id)
+    path = json.loads(driver.path)
+    undelivered_points = []
+    for point in path:
+        if point["delivered"] == False:
+            undelivered_points.append(point)
+    return undelivered_points
+
+def distance_between(point1, point2):
+    long1 = point1["longitude"]
+    long2 = point2["longitude"]
+    lat1 = point1["latitude"]
+    lat2 = point2["latitude"]
+
+    r= requests.get(f"http://router.project-osrm.org/table/v1/driving/{long1},{lat1};{long2},{lat2}", params = {"annotations":"distance,duration"})
+    r = r.json()
+    return r["distances"][0][1]  
+
+
+def duration_between(point1, point2):
+    long1 = point1["longitude"]
+    long2 = point2["longitude"]
+    lat1 = point1["latitude"]
+    lat2 = point2["latitude"]
+
+    r= requests.get(f"http://router.project-osrm.org/table/v1/driving/{long1},{lat1};{long2},{lat2}", params = {"annotations":"distance,duration"})
+    r = r.json()
+    return r["durations"][0][1]
+   
+
+
+def insert_dynamic_points(admin_id):
+    def cost(dist,time):
+        return 0.5*dist + 0.5*time
+
+    admin = Admin.query.get_or_404(admin_id)
+    dynamic_point = json.loads(admin.dynamic_point)
+
+    admin.input_map = json.dumps(json.loads(admin.input_map).append(dynamic_point))
+
+    drivers =Driver.query.filter(Driver.admin_id ==admin_id).all()
+    # undelivered_routes=[]
+    # for driver in drivers:
+    #     undelivered_routes.append(get_undelivered_points(driver.id))
+
+    routes = []
+    for driver in drivers:
+        routes.append(json.loads(driver.path))
+
+    min_cost = 1e9
+
+    route_idx=-1
+    point_idx=-1
+
+    
+    for k, route in enumerate(routes): 
+        for i, point in enumerate(route[:-1]):
+            if(point["delivered"] == True):
+                continue
+            next_point = route[i+1]
+            curr_dist = distance_between(point, dynamic_point) + distance_between(dynamic_point, next_point)- distance_between(point, next_point)
+            curr_time = 0
+            extra_time = duration_between(point, dynamic_point) + duration_between(dynamic_point, next_point)- duration_between(point, next_point)
+            curr_time = extra_time #TODO: ask about the metric for time like what is lasttime, i think arpit's algo tries to take into account the time take for subsequest deliveries if the dynamic deilvery is done but that info is not available so makes no sense
+
+            curr_cost = cost(curr_dist, curr_time)
+            if (curr_cost<min_cost):
+                min_cost = curr_cost
+                route_idx = k
+                point_idx = i
+    
+    dynamic_point["delivered"] = False
+    driver = Driver.query.get_or_404(route_idx+1) #driver id is 1 indexed
+    new_path = driver.path
+    new_path.insert(point_idx+1, dynamic_point)
+    driver.path = json.dumps(new_path)
+
+    db.session.commit()
+    
+
+
+
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -99,7 +185,7 @@ def put_input_map(file, admin_id):
 
 
 def generate_drivers(admin_id, n):
-    inital_drivers = Driver.query.filter(Driver.id.startswith(admin_id)).all()
+    inital_drivers = Driver.query.filter(Driver.admin_id == admin_id).all()
     for driver in inital_drivers:
         db.session.delete(driver)
     for i in range(1, 1 + n):
@@ -186,30 +272,25 @@ def add_dynamic_point():
         point["latitude"] = result[0]["latitude"]
         point["longitude"] = result[0]["longitude"]
 
-        d_points = None
-        if not admin.dynamic_points:
-            d_points = []
-        else:
-            d_points = json.loads(admin.dynamic_points)
-        d_points.append(point)
 
-        admin.dynamic_points = json.dumps(d_points)
+        admin.dynamic_point = json.dumps(point)       
+        db.session.commit()
 
+        insert_dynamic_points(admin_id)
         db.session.commit()
         return jsonify({"message": "Point successfully added"})
 
 
-@app.route("/get/admin/dynamicpoints")  # returns the dynamic points added by an admin
-def get_dynamic_points():
+@app.route("/get/admin/dynamicpoint")  # returns the dynamic points added by an admin
+def get_dynamic_point():
     if "admin_id" not in request.args:
         return jsonify({"message": "Admin id not specified"})
     admin_id = request.args.get("admin_id")
     admin = Admin.query.get_or_404(admin_id)
-    # dynamic_point=json.loads(admin.dynamic_points)
-    # print(dynamic_point)
+    
     return (
-        jsonify(json.loads(admin.dynamic_points))
-        if admin.dynamic_points
+        jsonify(json.loads(admin.dynamic_point))
+        if admin.dynamic_point
         else jsonify([])
     )
 
@@ -369,7 +450,31 @@ def get_drivers():
         out += f"Driver ID:\t{driver.id}\tAdmin ID:\t{driver.admin_id}\n"
     return out, 200
 
+@app.route("/post/driver/delivered", methods=["POST"])
+def driver_delivered():
+    if request.method =="POST":
+        if "driver_id" not in request.get_json():
+            return jsonify({"message": "Driver id not provided"})
+        driver_id = request.get_json()["driver_id"]
+        driver = Driver.query.get_or_404(driver_id)
+        if not driver.path:
+            return jsonify({"message": "No path for driver"}), 400
+        path = json.loads(driver.path)
+        for point in path:
+            if not point["delivered"]:
+                point["delivered"] = True
+                break
+        driver.path = json.dumps(path)
+        db.session.commit()
+        # print("TSUFSOIFSOIFB")
+        return jsonify({"message":"Delivery updated"})
 
+@app.route("/get/driver/remainingPath", methods=["GET"])
+def get_remaining_path():
+    if "driver_id" not in request.args:
+        return jsonify({"message": "Driver id not provided"})
+    driver_id = request.args.get("driver_id")
+    return jsonify(get_undelivered_points(driver_id)), 200
 
 
 
@@ -378,3 +483,6 @@ if __name__ == "__main__":
         db.create_all()
         db.session.commit()
     app.run(debug=Variables.debug, host=Variables.host, port=Variables.port)
+
+
+# def add_dynamic_point

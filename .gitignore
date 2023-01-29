@@ -130,5 +130,7 @@ dmypy.json
 
 config/.env
 osrm/
+test.py
+geoapifytest.py
 
 example_response.json
