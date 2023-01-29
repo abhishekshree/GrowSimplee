@@ -14,6 +14,7 @@ class PathGen:
         self.hub_node = hub_node
         self.distance_matrix = []
         self.duration_matrix = []
+        self.unrouted_points=[]
 
     def calc_distance(self, lat, long):
         bang_coord = [12.97674656, 77.57527924]
