@@ -96,8 +96,8 @@ def get_undelivered_points(driver_id):
             undelivered_points.append(point)
     return undelivered_points
 
-def get_geocoding_for(point):
-    g = geocoder.bing(point["address"], key=Variables.bingAPIKey)
+def get_geocoding_for(address):
+    g = geocoder.bing(address, key=Variables.bingAPIKey)
     return g.latlng
 
 
@@ -251,7 +251,7 @@ def input():
         admin = Admin.query.get_or_404(admin_id)
         n = int(form["no_of_drivers"])
         if (len(sys.argv)>1):
-            print("in chud gaya mode")
+            print("In API not working mode")
             preloaded = pd.read_excel("Geocode.xlsx")
             preloaded=preloaded.to_dict()
             admin.input_map = json.dumps(preloaded)
@@ -272,26 +272,47 @@ def add_dynamic_point():
         if "admin_id" not in request.get_json():
             return jsonify({"message": "Admin id not received"})
 
-        if "point" not in request.get_json():
-            return jsonify({"message": "Data not received"})
-
-        if "address" not in request.get_json()["data"]:
+        if "address" not in request.get_json():
             return jsonify({"message": "Address not received"})
+
+        if "location" not in request.get_json():
+            return jsonify({"message": "Location not received"})
+
+        if "awb" not in request.get_json():
+            return jsonify({"message": "AWB not received"}) 
+
+        if "name" not in request.get_json():
+            return jsonify({"message": "Name not received"})
+
+        if "product_id" not in request.get_json():
+            return jsonify({"message": "Product ID not received"})
 
         admin_id = request.get_json()["admin_id"]
         admin = Admin.query.get_or_404(admin_id)
         print(admin_id)
 
-        point = request.get_json()["point"]
-        latitude, longitude = get_geocoding_for(point)
+        address = request.get_json()["address"]
+        location = request.get_json()["location"]
+        awb = request.get_json()["awb"]
+        name = request.get_json()["name"]
+        product_id = request.get_json()["product_id"]
+
+        latitude, longitude = get_geocoding_for(address)
         
         # address = pd.read_json(json.dumps([data]))
         # result = Geocoding(Variables.bingAPIKey, address).generate()
 
-        point["latitude"] = latitude
-        point["longitude"] = longitude
+        point = {
+            "address": address,
+            "location": location,
+            "awb": awb,
+            "name": name,
+            "product_id": product_id,
+            "latitude": latitude,
+            "longitude": longitude
+        }
 
-
+        # Append the dynamic points to a list not a single dynamic point
         admin.dynamic_point = json.dumps(point)       
         db.session.commit()
 
@@ -334,7 +355,7 @@ def gen_map():
 
 
         num_drivers = int(admin.num_drivers)
-        print(input_map)
+        # print(input_map)
         idx_map = []
         for i in range(0, len(input_map)):
             idx_map.append({
@@ -343,26 +364,33 @@ def gen_map():
             })
         
         hub_node = int(request.get_json()["hub_node"])
-        print("generate path")
+        # print("generate path")
         pg = PathGen(idx_map, num_drivers, hub_node)
         pg.remove_coords()
-        print("Enter output")
-        output_map, unrouted_points = pg.get_output_map()
+        # print("Enter output")
+        output_map, unrouted_idx = pg.get_output_map()
+
+        unrouted_points = []
+        for idx in unrouted_idx:
+            unrouted_points.append(input_map[idx])
+
         admin.unrouted_points = json.dumps(unrouted_points)
 
 
-        print("output map", output_map)
+        # print("output map", output_map)
         
-        final_output = []
+        final_output = {}
+        final_output["Routes"] = []
+        final_output["Unrouted_points"] = unrouted_points
         for driver_path in output_map:
             driver_map = []
             for loc in driver_path:
                 driver_map.append(input_map[loc])
-            final_output.append(driver_map)
-        admin.output_map = json.dumps(final_output)
+            final_output["Routes"].append(driver_map)
+        admin.output_map = json.dumps(final_output["Routes"])
 
         drivers = Driver.query.filter_by(admin_id=admin_id).all()
-        for route, driver in zip (final_output, drivers):
+        for route, driver in zip (final_output["Routes"], drivers):
                 for point in route: 
                     point["delivered"] = False
                 driver.path = json.dumps(route)
@@ -397,6 +425,7 @@ def get_drivers_for_admin():
     out = []
 
     drivers = Driver.query.filter(Driver.admin_id == request.args["admin_id"]).all()
+    ## TODO: improve the format of this output
     for driver in drivers:
         out.append("Driver id:\t" + driver.id + "\t Admin:\t" + driver.admin_id + "\n")
     return out
@@ -474,6 +503,7 @@ def get_drivers():
         out += f"Driver ID:\t{driver.id}\tAdmin ID:\t{driver.admin_id}\n"
     return out, 200
 
+##TODO: ye kya baat hui
 @app.route("/post/driver/delivered", methods=["POST"])
 def driver_delivered():
     if request.method =="POST":

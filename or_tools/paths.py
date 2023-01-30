@@ -138,16 +138,16 @@ class PathGen:
     def print_solution(self, manager, routing, assignment, num_locs):
         for vehicle_id in range(manager.GetNumberOfVehicles()):
             index = routing.Start(vehicle_id)
-            print(f"Route for vehicle {vehicle_id}:")
+            # print(f"Route for vehicle {vehicle_id}:")
             route = []
             points_accessed = set([])
             while not routing.IsEnd(index):
                 node_index = manager.IndexToNode(index)
                 points_accessed.add(node_index)
-                print(f"{node_index}->", end="")
+                # print(f"{node_index}->", end="")
                 route.append(node_index)
                 index = assignment.Value(routing.NextVar(index))
-            print(f"{manager.IndexToNode(index)}")
+            # print(f"{manager.IndexToNode(index)}")
             route.append(manager.IndexToNode(index))
             if len(route) > 2:
                 self.output_map.append(route)
@@ -160,9 +160,9 @@ class PathGen:
     def solve(self, timeout):
         self.distance_duraton_matrix()
         data = self.create_data_model()
-        print(data["num_locations"])
-        print(data["num_vehicles"])
-        print(data["depot"])
+        # print(data["num_locations"])
+        # print(data["num_vehicles"])
+        # print(data["depot"])
         manager = pywrapcp.RoutingIndexManager(
             data["num_locations"], data["num_vehicles"], data["depot"]
         )
