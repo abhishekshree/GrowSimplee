@@ -315,7 +315,8 @@ def add_dynamic_point():
             "name": name,
             "product_id": product_id,
             "latitude": latitude,
-            "longitude": longitude
+            "longitude": longitude,
+            "pickup": True
         }
 
         # TODO: Append the dynamic points to a list not a single dynamic point
