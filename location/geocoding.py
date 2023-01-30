@@ -47,7 +47,9 @@ class Geocoding:
         product_id = self.address_df["product_id"]
         volume = self.address_df["volume"]
         EDD = self.address_df["EDD"]
+        pickup = self.address_df["pickup"]
         address_pool = self.generate_address_pool(addrs)
+        
 
         p = Pool()
         results = p.map(self.geoloc, address_pool)
@@ -73,6 +75,7 @@ class Geocoding:
                     "product_id": product_id[i],
                     "volume": volume[i],
                     "EDD": EDD[i],
+                    "pickup": pickup[i]                    
                 }
             )
         return self.result
