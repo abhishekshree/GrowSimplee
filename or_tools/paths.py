@@ -150,11 +150,11 @@ class PathGen:
                 time_var = time_dimension.CumulVar(index)
                 points_accessed.add(node_index)
                 # print(f"{node_index}->", end="")
-                route.append((node_index, assignment.Max(time_var))
+                route.append((node_index, assignment.Max(time_var)))
                 index = assignment.Value(routing.NextVar(index))
             # print(f"{manager.IndexToNode(index)}")
             time_var = time_dimension.CumulVar(index)
-            route.append((manager.IndexToNode(index), assignment.Max(time_var))
+            route.append((manager.IndexToNode(index), assignment.Max(time_var)))
             if len(route) > 2:
                 self.output_map.append(route)
 
