@@ -30,7 +30,7 @@ class Geocoding:
     
     def geo_loc_single(self):
         g = geocoder.bing(self.address, key=self.bing_api_key)
-        
+
 
     def geoloc(self, addrs):
         g = geocoder.bing(addrs, key=self.bing_api_key, method="batch")
@@ -45,6 +45,8 @@ class Geocoding:
         AWB = self.address_df["AWB"]
         names = self.address_df["names"]
         product_id = self.address_df["product_id"]
+        volume = self.address_df["volume"]
+        EDD = self.address_df["EDD"]
         address_pool = self.generate_address_pool(addrs)
 
         p = Pool()
@@ -69,6 +71,8 @@ class Geocoding:
                     "AWB": str(AWB[i]),
                     "name": names[i],
                     "product_id": product_id[i],
+                    "volume": volume[i],
+                    "EDD": EDD[i],
                 }
             )
         return self.result

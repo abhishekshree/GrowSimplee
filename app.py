@@ -60,6 +60,7 @@ class Driver(db.Model):
     admin_id = db.Column(db.String, db.ForeignKey("admin.id"))
     path = db.Column(db.Text)
     date = db.Column(db.DateTime)
+    remaining_capacity = db.Column(db.Integer, default=640000)
 
     def get_path(self):
         return json.loads(self.path)
