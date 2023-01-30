@@ -432,9 +432,10 @@ def get_drivers_for_admin():
 
     drivers = Driver.query.filter(Driver.admin_id == request.args["admin_id"]).all()
     ## TODO: improve the format of this output
+
     for driver in drivers:
-        out.append("Driver id:\t" + driver.id + "\t Admin:\t" + driver.admin_id + "\n")
-    return out
+        out.append({"Driver id": driver.id ,"Admin:": driver.admin_id})
+    return jsonify(out)
 
 
 @app.route("/get/admin/input", methods=["GET"])  # returns the output map of the admin
@@ -524,6 +525,12 @@ def driver_delivered():
             if not point["delivered"]:
                 point["delivered"] = True
                 break
+        volume = point["volume"]
+        if point["pickup"] == True:
+            driver.remaining_capacity -= volume
+        else:
+            driver.remaining_capacity += volume
+        
         driver.path = json.dumps(path)
         db.session.commit()
         # print("TSUFSOIFSOIFB")

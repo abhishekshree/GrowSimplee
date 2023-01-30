@@ -75,7 +75,7 @@ class Geocoding:
                     "product_id": product_id[i],
                     "volume": volume[i],
                     "EDD": EDD[i],
-                    "pickup": pickup[i]                    
+                    "pickup": pickup[i]     ## DO NOT KNOW THE FORMAT OF THIS YET                
                 }
             )
         return self.result
