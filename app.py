@@ -108,7 +108,7 @@ def distance_between(point1, point2):
     lat1 = point1["latitude"]
     lat2 = point2["latitude"]
 
-    r= requests.get(f"http://router.project-osrm.org/table/v1/driving/{long1},{lat1};{long2},{lat2}", params = {"annotations":"distance,duration"})
+    r= requests.get(f"{Variables.osrm}/table/v1/driving/{long1},{lat1};{long2},{lat2}", params = {"annotations":"distance"})
     r = r.json()
     return r["distances"][0][1]  
 
@@ -119,7 +119,7 @@ def duration_between(point1, point2):
     lat1 = point1["latitude"]
     lat2 = point2["latitude"]
 
-    r= requests.get(f"http://router.project-osrm.org/table/v1/driving/{long1},{lat1};{long2},{lat2}", params = {"annotations":"distance,duration"})
+    r= requests.get(f"{Variables.osrm}/table/v1/driving/{long1},{lat1};{long2},{lat2}", params = {"annotations":"duration"})
     r = r.json()
     return r["durations"][0][1]
    
@@ -138,6 +138,11 @@ def insert_dynamic_points(admin_id):
     # undelivered_routes=[]
     # for driver in drivers:
     #     undelivered_routes.append(get_undelivered_points(driver.id))
+
+    # distance increment
+    # time window lapse
+    # capacity check
+    # trip_window check
 
     routes = []
     for driver in drivers:
@@ -313,7 +318,7 @@ def add_dynamic_point():
             "longitude": longitude
         }
 
-        # Append the dynamic points to a list not a single dynamic point
+        # TODO: Append the dynamic points to a list not a single dynamic point
         admin.dynamic_point = json.dumps(point)       
         db.session.commit()
 

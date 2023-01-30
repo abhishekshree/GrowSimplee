@@ -58,7 +58,10 @@ class PathGen:
         data["time"] = self.duration_matrix
         data["num_locations"] = len(self.distance_matrix)
         # The time windows are based on the edd of different items
-        data["time_windows"] = [(0, 15000) for i in range(data['num_locations'])]
+        data["time_window"] = []
+        for loc in self.input_map:
+            data["time_windows"].append((0, loc["EDT"]))
+        # data["time_windows"] = [(0, 15000) for i in range(data['num_locations'])]
         #the demands are based on the output of the cv model
         data["demands"] = [random.randint(27, 16001) for i in range(data['num_locations'])]
         data["num_vehicles"] = self.num_drivers
@@ -66,7 +69,7 @@ class PathGen:
         data["vehicle_capacity"] = 640000
         data["depot"] = self.hub_node
         data['demands'][data['depot']] = 0
-        data['time_windows'][data['depot']] = (0, 15000)
+        data['time_windows'][data['depot']] = (0, 18000)
         return data
 
     def create_distance_evaluator(self, data):
@@ -136,6 +139,7 @@ class PathGen:
 
     # TODO: return unrouted points
     def print_solution(self, manager, routing, assignment, num_locs):
+        time_dimension = routing.GetDimensionOrDie('Time')
         for vehicle_id in range(manager.GetNumberOfVehicles()):
             index = routing.Start(vehicle_id)
             # print(f"Route for vehicle {vehicle_id}:")
@@ -143,12 +147,14 @@ class PathGen:
             points_accessed = set([])
             while not routing.IsEnd(index):
                 node_index = manager.IndexToNode(index)
+                time_var = time_dimension.CumulVar(index)
                 points_accessed.add(node_index)
                 # print(f"{node_index}->", end="")
-                route.append(node_index)
+                route.append((node_index, assignment.Max(time_var))
                 index = assignment.Value(routing.NextVar(index))
             # print(f"{manager.IndexToNode(index)}")
-            route.append(manager.IndexToNode(index))
+            time_var = time_dimension.CumulVar(index)
+            route.append((manager.IndexToNode(index), assignment.Max(time_var))
             if len(route) > 2:
                 self.output_map.append(route)
 
