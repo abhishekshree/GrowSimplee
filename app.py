@@ -530,6 +530,31 @@ def get_remaining_path():
     driver_id = request.args.get("driver_id")
     return jsonify(get_undelivered_points(driver_id)), 200
 
+@app.route("/post/driver/reorder", methods=["POST"])
+def reorder():
+    if requests.method=="POST":
+        if "driver_id" not in request.get_json():
+            return jsonify({"message": "Driver id not provided"})
+        if "new_path" not in request.get_json():
+            return jsonify({"message": "New path not provided"})
+        
+        driver = Driver.query.get_or_404(request.get_json()["driver_id"])
+        driver.path = json.dumps(request.get_json()["new_path"])
+        db.session.commit()
+
+@app.route("/post/driver/removepoint", methods=["POST"])
+def remove_point():
+    if requests.method == "POST":
+        if "driver_id" not in request.get_json():
+            return jsonify({"message": "Driver id not provided"})
+        if "point" not in request.get_json():
+            return jsonify({"message": "Point not provided"})
+        
+        driver = Driver.query.get_or_404(request.get_json()["driver_id"])
+        path = json.loads(driver.path)
+        path.pop(int(request.get_json()["point"]))
+        driver.path = json.dumps(path)
+        db.session.commit()
 
 
 if __name__ == "__main__":
