@@ -45,7 +45,9 @@ class Geocoding:
         AWB = self.address_df["AWB"]
         names = self.address_df["names"]
         product_id = self.address_df["product_id"]
+        # TODO: randomize volume for testing
         volume = self.address_df["volume"]
+        # TODO: randomize EDD for testing
         EDD = self.address_df["EDD"]
         pickup = self.address_df["pickup"]
         address_pool = self.generate_address_pool(addrs)
@@ -74,7 +76,7 @@ class Geocoding:
                     "name": names[i],
                     "product_id": product_id[i],
                     "volume": volume[i],
-                    "EDD": EDD[i],
+                    "EDD": int(EDD[i]),
                     "pickup": pickup[i]     ## DO NOT KNOW THE FORMAT OF THIS YET                
                 }
             )
