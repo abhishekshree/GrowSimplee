@@ -13,7 +13,6 @@ class Geocoding:
         self.result = []
         self.dist_matrix = []
         self.dur_matrix = []
-        
 
     @staticmethod
     def generate_address_pool(address):
@@ -28,10 +27,9 @@ class Geocoding:
                 addr_pool.append(addresses[cnt:])
             cnt = cnt + 50
         return addr_pool
-    
+
     def geo_loc_single(self):
         g = geocoder.bing(self.address, key=self.bing_api_key)
-
 
     def geoloc(self, addrs):
         g = geocoder.bing(addrs, key=self.bing_api_key, method="batch")
@@ -55,7 +53,6 @@ class Geocoding:
         pickup = [False for i in range(len(addrs))]
         # pickup = self.address_df["pickup"]
         address_pool = self.generate_address_pool(addrs)
-        
 
         p = Pool()
         results = p.map(self.geoloc, address_pool)
@@ -81,7 +78,7 @@ class Geocoding:
                     "product_id": product_id[i],
                     "volume": volume[i],
                     "EDD": int(EDD[i]),
-                    "pickup": pickup[i]     ## DO NOT KNOW THE FORMAT OF THIS YET                
+                    "pickup": pickup[i],  ## DO NOT KNOW THE FORMAT OF THIS YET
                 }
             )
         return self.result

@@ -5,6 +5,7 @@ from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 from config.config import Variables
 
+
 class PathGen:
     def __init__(self, input_map, num_drivers, hub_node):
         self.input_map = input_map
@@ -14,7 +15,7 @@ class PathGen:
         self.hub_node = hub_node
         self.distance_matrix = []
         self.duration_matrix = []
-        self.unrouted_points=[]
+        self.unrouted_points = []
 
     def calc_distance(self, lat, long):
         bang_coord = [12.97674656, 77.57527924]
@@ -45,11 +46,11 @@ class PathGen:
         for i in range(0, len(self.distance_matrix)):
             for j in range(0, len(self.distance_matrix)):
                 self.distance_matrix[i][j] = int(self.distance_matrix[i][j])
-                if(j != self.hub_node):
+                if j != self.hub_node:
                     self.duration_matrix[i][j] = int(self.duration_matrix[i][j]) + 300
                 else:
                     self.duration_matrix[i][j] = int(self.duration_matrix[i][j])
-        
+
         return self.distance_matrix, self.duration_matrix
 
     def create_data_model(self):
@@ -62,33 +63,37 @@ class PathGen:
         for loc in self.input_map:
             data["time_windows"].append((0, loc["EDD"]))
         # data["time_windows"] = [(0, 15000) for i in range(data['num_locations'])]
-        #the demands are based on the output of the cv model
+        # the demands are based on the output of the cv model
         # data["demands"] = [random.randint(27, 16001) for i in range(data['num_locations'])]
         data["demands"] = []
         for loc in self.input_map:
             data["demands"].append(loc["volume"])
         data["num_vehicles"] = self.num_drivers
-        #Fixed to use the bigger bag out of the two
+        # Fixed to use the bigger bag out of the two
         data["vehicle_capacity"] = 640000
         data["depot"] = self.hub_node
-        data['demands'][data['depot']] = 0
-        data['time_windows'][data['depot']] = (0, 18000)
+        data["demands"][data["depot"]] = 0
+        data["time_windows"][data["depot"]] = (0, 18000)
         return data
 
     def create_distance_evaluator(self, data):
         _distances = data["distance"]
-        def distance_evaluator(manager, from_node, to_node):
-            return _distances[manager.IndexToNode(from_node)][manager.IndexToNode(to_node)]
-        return distance_evaluator
 
+        def distance_evaluator(manager, from_node, to_node):
+            return _distances[manager.IndexToNode(from_node)][
+                manager.IndexToNode(to_node)
+            ]
+
+        return distance_evaluator
 
     def create_demand_evaluator(self, data):
         _demands = data["demands"]
+
         def demand_evaluator(manager, node):
             """Returns the demand of the current node"""
             return _demands[manager.IndexToNode(node)]
-        return demand_evaluator
 
+        return demand_evaluator
 
     def add_capacity_constraints(self, routing, data, demand_evaluator_index):
         capacity = "Capacity"
@@ -102,14 +107,18 @@ class PathGen:
 
     def create_time_evaluator(self, data):
         _total_time = data["time"]
+
         def time_evaluator(manager, from_node, to_node):
             """Returns the total time between the two nodes"""
-            return _total_time[manager.IndexToNode(from_node)][manager.IndexToNode(to_node)]
+            return _total_time[manager.IndexToNode(from_node)][
+                manager.IndexToNode(to_node)
+            ]
+
         return time_evaluator
 
     def add_time_window_constraints(self, routing, manager, data, time_evaluator_index):
         time = "Time"
-        #TODO: check horizon whether valid to keep constant or not
+        # TODO: check horizon whether valid to keep constant or not
         horizon = 15000
         routing.AddDimension(
             time_evaluator_index,
@@ -122,19 +131,21 @@ class PathGen:
         # Add time window constraints for each location except depot
         # and 'copy' the slack var in the solution object (aka Assignment) to print it
         for location_idx, time_window in enumerate(data["time_windows"]):
-            if location_idx == data['depot']:
+            if location_idx == data["depot"]:
                 continue
             index = manager.NodeToIndex(location_idx)
             # time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
-            time_dimension.SetCumulVarSoftUpperBound(index, time_window[1], Variables.time_penalty)
+            time_dimension.SetCumulVarSoftUpperBound(
+                index, time_window[1], Variables.time_penalty
+            )
             routing.AddToAssignment(time_dimension.SlackVar(index))
         # Add time window constraints for each vehicle start node
         # and 'copy' the slack var in the solution object (aka Assignment) to print it
         for vehicle_id in range(data["num_vehicles"]):
             index = routing.Start(vehicle_id)
             time_dimension.CumulVar(index).SetRange(
-                data["time_windows"][data['depot']][0], 
-                data["time_windows"][data['depot']][1]
+                data["time_windows"][data["depot"]][0],
+                data["time_windows"][data["depot"]][1],
             )
             routing.AddToAssignment(time_dimension.SlackVar(index))
             # Warning: Slack var is not defined for vehicle's end node
@@ -142,7 +153,7 @@ class PathGen:
 
     # TODO: return unrouted points
     def print_solution(self, manager, routing, assignment, num_locs):
-        time_dimension = routing.GetDimensionOrDie('Time')
+        time_dimension = routing.GetDimensionOrDie("Time")
         points_accessed = set([])
         for vehicle_id in range(manager.GetNumberOfVehicles()):
             index = routing.Start(vehicle_id)
@@ -163,8 +174,7 @@ class PathGen:
 
         for i in range(num_locs):
             if i not in points_accessed:
-                self.unrouted_points.append(i)            
-
+                self.unrouted_points.append(i)
 
     def solve(self, timeout):
         self.distance_duraton_matrix()
@@ -192,9 +202,11 @@ class PathGen:
         )
         self.add_time_window_constraints(routing, manager, data, time_evaluator_index)
 
-        for node in range (0, data['num_locations']):
-            if(node != data['depot']):
-                routing.AddDisjunction([manager.NodeToIndex(node)], Variables.drop_penalty)
+        for node in range(0, data["num_locations"]):
+            if node != data["depot"]:
+                routing.AddDisjunction(
+                    [manager.NodeToIndex(node)], Variables.drop_penalty
+                )
 
         search_parameters = pywrapcp.DefaultRoutingSearchParameters()
         search_parameters.first_solution_strategy = (
@@ -209,7 +221,7 @@ class PathGen:
         solution = routing.SolveWithParameters(search_parameters)
 
         if solution:
-            self.print_solution(manager, routing, solution, data['num_locations'])
+            self.print_solution(manager, routing, solution, data["num_locations"])
             return False
         else:
             return True

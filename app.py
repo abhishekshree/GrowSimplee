@@ -37,7 +37,7 @@ class Admin(db.Model):
     output_map = db.Column(db.Text, default="[]")
     # date = db.Column(db.DateTime, default=datetime.utcnow)
     dynamic_point = db.Column(db.Text)
-    unrouted_points = db.Column(db.Text, default= '[]')
+    unrouted_points = db.Column(db.Text, default="[]")
 
     def get_input_map(self):
         return json.loads(self.input_map)
@@ -49,10 +49,11 @@ class Admin(db.Model):
         self.input_map = json.dumps(input_map)
 
     def put_output_map(self, output_map):
-        self.output_map = json.dumps(output_map)  
-        
+        self.output_map = json.dumps(output_map)
+
     def __repr__(self):
         return f"Admin id: {self.id}"
+
 
 class Driver(db.Model):
     __tablename__ = "driver"
@@ -83,10 +84,10 @@ class Driver(db.Model):
         self.put_path(path)
         self.date = date
 
+
 ###########################
 
 #########HELPER FUNCTIONS########
-
 
 
 def get_undelivered_points(driver_id):
@@ -97,6 +98,7 @@ def get_undelivered_points(driver_id):
         if point["delivered"] == False:
             undelivered_points.append(point)
     return undelivered_points
+
 
 def get_geocoding_for(address):
     g = geocoder.bing(address, key=Variables.bingAPIKey)
@@ -109,9 +111,12 @@ def distance_between(point1, point2):
     lat1 = point1["latitude"]
     lat2 = point2["latitude"]
 
-    r= requests.get(f"{Variables.osrm}/table/v1/driving/{long1},{lat1};{long2},{lat2}", params = {"annotations":"distance"})
+    r = requests.get(
+        f"{Variables.osrm}/table/v1/driving/{long1},{lat1};{long2},{lat2}",
+        params={"annotations": "distance"},
+    )
     r = r.json()
-    return r["distances"][0][1]  
+    return r["distances"][0][1]
 
 
 def duration_between(point1, point2):
@@ -120,15 +125,17 @@ def duration_between(point1, point2):
     lat1 = point1["latitude"]
     lat2 = point2["latitude"]
 
-    r= requests.get(f"{Variables.osrm}/table/v1/driving/{long1},{lat1};{long2},{lat2}", params = {"annotations":"duration"})
+    r = requests.get(
+        f"{Variables.osrm}/table/v1/driving/{long1},{lat1};{long2},{lat2}",
+        params={"annotations": "duration"},
+    )
     r = r.json()
     return r["durations"][0][1]
-   
 
 
 def insert_dynamic_points(admin_id):
-    def cost(dist,time):
-        return dist + 100*time
+    def cost(dist, time):
+        return dist + 100 * time
 
     admin = Admin.query.get_or_404(admin_id)
     dynamic_point = json.loads(admin.dynamic_point)
@@ -136,7 +143,7 @@ def insert_dynamic_points(admin_id):
     input_map.append(dynamic_point)
     admin.input_map = json.dumps(input_map)
     db.session.commit()
-    drivers =Driver.query.filter(Driver.admin_id ==admin_id).all()
+    drivers = Driver.query.filter(Driver.admin_id == admin_id).all()
     # undelivered_routes=[]
     # for driver in drivers:
     #     undelivered_routes.append(get_undelivered_points(driver.id))
@@ -152,70 +159,79 @@ def insert_dynamic_points(admin_id):
 
     min_cost = 1e18
 
-    route_idx=-1
-    point_idx=-1
+    route_idx = -1
+    point_idx = -1
     time_change = 0
 
-    
-    for k, route in enumerate(routes): 
+    for k, route in enumerate(routes):
         for i, point in enumerate(route[:-1]):
-            if(point["delivered"] == True):
+            if point["delivered"] == True:
                 continue
 
             max_capacity = 0
             curr_capacity = 0
             for j in range(0, len(route)):
                 # TODO: make hub node volume to be zero
-                if(route[j]["pickup"] == False):
+                if route[j]["pickup"] == False:
                     curr_capacity += route[j]["volume"]
             for j in range(0, len(route)):
-                if(route[j]["pickup"] == False):
+                if route[j]["pickup"] == False:
                     curr_capacity -= route[j]["volume"]
                 else:
                     curr_capacity += route[j]["volume"]
-                if(j >= i):
+                if j >= i:
                     max_capacity = max(max_capacity, curr_capacity)
 
-            if(max_capacity + dynamic_point["volume"] > 640000):
+            if max_capacity + dynamic_point["volume"] > 640000:
                 continue
-                
-            next_point = route[i+1]
-            extra_dist = distance_between(point, dynamic_point) + distance_between(dynamic_point, next_point) - distance_between(point, next_point)
-            extra_time = duration_between(point, dynamic_point) + duration_between(dynamic_point, next_point) - duration_between(point, next_point)
+
+            next_point = route[i + 1]
+            extra_dist = (
+                distance_between(point, dynamic_point)
+                + distance_between(dynamic_point, next_point)
+                - distance_between(point, next_point)
+            )
+            extra_time = (
+                duration_between(point, dynamic_point)
+                + duration_between(dynamic_point, next_point)
+                - duration_between(point, next_point)
+            )
             time_window_penalty = 0
 
             route_end_time = route[-1]["EDT"]
-            #TODO: change 18000 to hub node ka end time
-            if(route_end_time + extra_time > 18000):
+            # TODO: change 18000 to hub node ka end time
+            if route_end_time + extra_time > 18000:
                 continue
             # curr_time = extra_time #TODO: ask about the metric for time like what is lasttime, i think arpit's algo tries to take into account the time take for subsequest deliveries if the dynamic deilvery is done but that info is not available so makes no sense
 
-            for j in range(i+1, len(route)):
-                time_window_penalty += max(0, route[j]["EDT"] + extra_time - route[j]["EDD"]) - max(0, route[j]["EDT"] - route[j]["EDD"])
+            for j in range(i + 1, len(route)):
+                time_window_penalty += max(
+                    0, route[j]["EDT"] + extra_time - route[j]["EDD"]
+                ) - max(0, route[j]["EDT"] - route[j]["EDD"])
 
             curr_cost = cost(extra_dist, time_window_penalty)
-            if (curr_cost<min_cost):
+            if curr_cost < min_cost:
                 min_cost = curr_cost
                 route_idx = k
                 point_idx = i
                 time_change = extra_time
-    
+
     dynamic_point["delivered"] = False
-    driver = Driver.query.get_or_404(str(admin_id) + "_" + str(route_idx+1)) #driver id is 1 indexed
+    driver = Driver.query.get_or_404(
+        str(admin_id) + "_" + str(route_idx + 1)
+    )  # driver id is 1 indexed
     new_path = json.loads(driver.path)
     offset = duration_between(new_path[point_idx], dynamic_point)
 
-    dynamic_point["EDT"]=offset+new_path[point_idx]["EDT"]
-    for i in range(point_idx+1, len(new_path)):
+    dynamic_point["EDT"] = offset + new_path[point_idx]["EDT"]
+    for i in range(point_idx + 1, len(new_path)):
         new_path[i]["EDT"] += time_change
 
-    new_path.insert(point_idx+1, dynamic_point)
+    new_path.insert(point_idx + 1, dynamic_point)
     driver.path = json.dumps(new_path)
 
     db.session.commit()
     return route_idx + 1
-    
-
 
 
 def allowed_file(filename):
@@ -240,25 +256,26 @@ def generate_drivers(admin_id, n):
     for driver in inital_drivers:
         db.session.delete(driver)
     for i in range(1, 1 + n):
-        driver = Driver(
-            id=str(admin_id) + "_" + str(i), admin_id=admin_id
-        )
+        driver = Driver(id=str(admin_id) + "_" + str(i), admin_id=admin_id)
         db.session.add(driver)
     admin = Admin.query.get_or_404(admin_id)
     admin.num_drivers = n
     db.session.commit()
     # print(len(Driver.query.filter(Driver.id.startswith(admin_id)).all()))
+
+
 ################################
 
 
 ###################ADMIN ROUTES####################
+
 
 @app.route("/post/admin/new", methods=["POST"])  # creates a new admin
 def post_admin():
     # get a json and store it in the database
     if request.method == "POST":
         # admin_id = str(uuid.uuid4())
-      
+
         admin = Admin()
 
         db.session.add(admin)
@@ -267,14 +284,11 @@ def post_admin():
         # return jsonify({"message": "Admin successfully added", "id": admin_id}), 200
 
 
-
-
 @app.route(
     "/post/admin/input", methods=["GET", "POST"]
 )  # takes admin id, map and number of drivers. Also updates driver db with the required number of drivers
 def input():
     # get input as a dataframe and store it in data/ folder
-   
 
     if request.method == "POST":
         form = request.form
@@ -292,18 +306,28 @@ def input():
         admin_id = form["admin_id"]
         admin = Admin.query.get_or_404(admin_id)
         n = int(form["no_of_drivers"])
-        if (len(sys.argv)>1):
+        if len(sys.argv) > 1:
             print("In API not working mode")
             preloaded = pd.read_excel("Geocode.xlsx")
-            preloaded=preloaded.to_dict()
+            preloaded = preloaded.to_dict()
             admin.input_map = json.dumps(preloaded)
-            return jsonify({"message": "Input successful", "map": Admin.query.get_or_404(admin_id).input_map, "debug":True})
-
+            return jsonify(
+                {
+                    "message": "Input successful",
+                    "map": Admin.query.get_or_404(admin_id).input_map,
+                    "debug": True,
+                }
+            )
 
         put_input_map(admin_id=admin_id, file=file)
         generate_drivers(admin_id=admin_id, n=n)
 
-        return jsonify({"message": "Input successful", "map": json.loads(Admin.query.get_or_404(admin_id).input_map)})
+        return jsonify(
+            {
+                "message": "Input successful",
+                "map": json.loads(Admin.query.get_or_404(admin_id).input_map),
+            }
+        )
 
 
 @app.route(
@@ -321,7 +345,7 @@ def add_dynamic_point():
             return jsonify({"message": "Location not received"})
 
         if "awb" not in request.get_json():
-            return jsonify({"message": "AWB not received"}) 
+            return jsonify({"message": "AWB not received"})
 
         if "name" not in request.get_json():
             return jsonify({"message": "Name not received"})
@@ -343,7 +367,7 @@ def add_dynamic_point():
         volume = request.get_json()["volume"]
 
         latitude, longitude = get_geocoding_for(address)
-        
+
         # address = pd.read_json(json.dumps([data]))
         # result = Geocoding(Variables.bingAPIKey, address).generate()
 
@@ -358,15 +382,19 @@ def add_dynamic_point():
             "pickup": True,
             # TODO: see to the EDD of random points based on the input format
             "EDD": 18000,
-            "volume": volume
+            "volume": volume,
         }
 
         # TODO: Append the dynamic points to a list not a single dynamic point
-        admin.dynamic_point = json.dumps(point)       
+        admin.dynamic_point = json.dumps(point)
         db.session.commit()
 
         driver_id = insert_dynamic_points(admin_id)
-        return jsonify({"message": f"Point successfully addedin the route of driver with id {driver_id}"})
+        return jsonify(
+            {
+                "message": f"Point successfully addedin the route of driver with id {driver_id}"
+            }
+        )
 
 
 @app.route("/get/admin/dynamicPoint")  # returns the dynamic points added by an admin
@@ -375,17 +403,15 @@ def get_dynamic_point():
         return jsonify({"message": "Admin id not specified"})
     admin_id = request.args.get("admin_id")
     admin = Admin.query.get_or_404(admin_id)
-    
+
     return (
-        jsonify(json.loads(admin.dynamic_point))
-        if admin.dynamic_point
-        else jsonify([])
+        jsonify(json.loads(admin.dynamic_point)) if admin.dynamic_point else jsonify([])
     )
 
 
 @app.route("/")
 def hello():
-    return "LEN:   "+str(len(sys.argv))
+    return "LEN:   " + str(len(sys.argv))
 
 
 @app.route("/post/admin/start", methods=["POST"])
@@ -401,18 +427,19 @@ def gen_map():
         input_map = json.loads(admin.input_map)
         # return jsonify((input_map))
 
-
         num_drivers = int(admin.num_drivers)
         # print(input_map)
         idx_map = []
         for i in range(0, len(input_map)):
-            idx_map.append({
-                "latitude": input_map[i]["latitude"],
-                "longitude": input_map[i]["longitude"],
-                "EDD": input_map[i]["EDD"],
-                "volume": input_map[i]["volume"]
-            })
-        
+            idx_map.append(
+                {
+                    "latitude": input_map[i]["latitude"],
+                    "longitude": input_map[i]["longitude"],
+                    "EDD": input_map[i]["EDD"],
+                    "volume": input_map[i]["volume"],
+                }
+            )
+
         hub_node = int(request.get_json()["hub_node"])
         # print("generate path")
         pg = PathGen(idx_map, num_drivers, hub_node)
@@ -426,9 +453,8 @@ def gen_map():
 
         admin.unrouted_points = json.dumps(unrouted_points)
 
-
         # print("output map", output_map)
-        
+
         final_output = {}
         final_output["Routes"] = []
         final_output["Unrouted_points"] = unrouted_points
@@ -444,13 +470,14 @@ def gen_map():
         drivers = Driver.query.filter_by(admin_id=admin_id).all()
         driver_idx = 0
         for route in final_output["Routes"]:
-            for point in route: 
+            for point in route:
                 point["delivered"] = False
             drivers[driver_idx].path = json.dumps(route)
             driver_idx += 1
-            
+
         db.session.commit()
         return jsonify(final_output), 200
+
 
 @app.route("/get/admin/output", methods=["GET"])  # returns the output map of the admin
 def get_admin():
@@ -463,11 +490,14 @@ def get_admin():
     map_data = json.loads(admin.output_map) if admin.output_map else []
     return jsonify(map_data), 200
 
-@app.route("/get/admin/unrouted", methods=["GET", "POST"])  
+
+@app.route("/get/admin/unrouted", methods=["GET", "POST"])
 def get_unrouted_points():
     if "admin_id" not in request.args:
         return jsonify({"message": "Admin id not provided"})
-    return jsonify(json.loads(Admin.query.get_or_404(request.args.get("admin_id")).unrouted_points))
+    return jsonify(
+        json.loads(Admin.query.get_or_404(request.args.get("admin_id")).unrouted_points)
+    )
 
 
 @app.route(
@@ -482,7 +512,7 @@ def get_drivers_for_admin():
     ## TODO: improve the format of this output
 
     for driver in drivers:
-        out.append({"Driver id": driver.id ,"Admin:": driver.admin_id})
+        out.append({"Driver id": driver.id, "Admin:": driver.admin_id})
     return jsonify(out)
 
 
@@ -497,6 +527,7 @@ def get_admin_input():
     map_data = json.loads(admin.input_map) if admin.input_map else []
     return jsonify(map_data), 200
 
+
 @app.route("/get/coordinates", methods=["GET", "POST"])
 def coordinates():
     # get coordinates from the dataframe and return it as a json
@@ -508,10 +539,8 @@ def coordinates():
         return jsonify(res), 200
 
 
-
-
-
 ##############DRIVER ROUTES#####################
+
 
 @app.route("/get/driver/path", methods=["GET", "POST"])
 def get_driver_path():
@@ -522,6 +551,7 @@ def get_driver_path():
     path = json.loads(driver.path) if driver.path else []
     return jsonify(path), 200
 
+
 @app.route("/get/admins", methods=["GET", "POST"])  # returns all admins
 def get_admins():
     admins = Admin.query.all()
@@ -530,18 +560,18 @@ def get_admins():
         out.append(admin.id)
     return out, 200
 
-@app.route(
-    "/get/admin/dayStarted", methods=["GET"]
-)
+
+@app.route("/get/admin/dayStarted", methods=["GET"])
 def get_all_admin_daystarted():
     admins = Admin.query.all()
     admin_daystarted = {}
     for admin in admins:
-        if(len(eval(admin.output_map)) > 0):
+        if len(eval(admin.output_map)) > 0:
             admin_daystarted[admin.id] = True
         else:
             admin_daystarted[admin.id] = False
     return jsonify(admin_daystarted), 200
+
 
 @app.route("/get/drivers", methods=["GET", "POST"])  # returns all drivers
 def get_drivers():
@@ -551,10 +581,11 @@ def get_drivers():
         out += f"Driver ID:\t{driver.id}\tAdmin ID:\t{driver.admin_id}\n"
     return out, 200
 
+
 ##TODO: ye kya baat hui
 @app.route("/post/driver/delivered", methods=["POST"])
 def driver_delivered():
-    if request.method =="POST":
+    if request.method == "POST":
         if "driver_id" not in request.get_json():
             return jsonify({"message": "Driver id not provided"})
         driver_id = request.get_json()["driver_id"]
@@ -571,11 +602,12 @@ def driver_delivered():
             driver.remaining_capacity -= volume
         else:
             driver.remaining_capacity += volume
-        
+
         driver.path = json.dumps(path)
         db.session.commit()
         # print("TSUFSOIFSOIFB")
-        return jsonify({"message":"Delivery updated"})
+        return jsonify({"message": "Delivery updated"})
+
 
 @app.route("/get/driver/remainingPath", methods=["GET"])
 def get_remaining_path():
@@ -584,21 +616,25 @@ def get_remaining_path():
     driver_id = request.args.get("driver_id")
     return jsonify(get_undelivered_points(driver_id)), 200
 
+
 @app.route("/post/driver/reorder", methods=["POST"])
 def reorder():
-    if requests.method=="POST":
+    if requests.method == "POST":
         if "driver_id" not in request.get_json():
             return jsonify({"message": "Driver id not provided"})
         if "new_path" not in request.get_json():
             return jsonify({"message": "New path not provided"})
-        
+
         driver = Driver.query.get_or_404(request.get_json()["driver_id"])
         new_path = request.get_json()["new_path"]
         for i in range(1, len(new_path)):
-            new_path[i]["EDT"] = new_path[i-1]["EDT"] + duration_between(new_path[i-1], new_path[i])
+            new_path[i]["EDT"] = new_path[i - 1]["EDT"] + duration_between(
+                new_path[i - 1], new_path[i]
+            )
 
         driver.path = json.dumps(new_path)
         db.session.commit()
+
 
 @app.route("/post/driver/removepoint", methods=["POST"])
 def remove_point():
@@ -607,32 +643,30 @@ def remove_point():
             return jsonify({"message": "Driver id not provided"})
         if "point" not in request.get_json():
             return jsonify({"message": "Point not provided"})
-        
+
         driver = Driver.query.get_or_404(request.get_json()["driver_id"])
         path = json.loads(driver.path)
         idx_to_remove = int(request.get_json()["point"])
         path.pop(idx_to_remove)
-        for i in range(idx_to_remove-1, len(path)-1):
-            path[i+1]["EDT"] = path[i]["EDT"] + duration_between(path[i], path[i+1])
+        for i in range(idx_to_remove - 1, len(path) - 1):
+            path[i + 1]["EDT"] = path[i]["EDT"] + duration_between(path[i], path[i + 1])
 
-
-        
         driver.path = json.dumps(path)
         db.session.commit()
 
-@app.route("/post/generateOTP",methods=["POST"])
+
+@app.route("/post/generateOTP", methods=["POST"])
 def generate_otp():
     account_sid = Variables.twilioAccountSID
     auth_token = Variables.twilioAuthToken
     client = Client(account_sid, auth_token)
-    verification = client.verify \
-                    .v2 \
-                    .services(Variables.twilioSMSserviceSID) \
-                    .verifications \
-                    .create(to='+918317084914', channel='sms')
-    return jsonify({"message":"OTP generated"}),200
+    verification = client.verify.v2.services(
+        Variables.twilioSMSserviceSID
+    ).verifications.create(to="+918317084914", channel="sms")
+    return jsonify({"message": "OTP generated"}), 200
 
-@app.route("/post/verifyOTP",methods=["POST"])
+
+@app.route("/post/verifyOTP", methods=["POST"])
 def verify_otp():
     if "otp" not in request.get_json():
         return jsonify({"message": "OTP not provided"})
@@ -641,24 +675,23 @@ def verify_otp():
     auth_token = Variables.twilioAuthToken
     client = Client(account_sid, auth_token)
     try:
-        verification_check = client.verify \
-                                .v2 \
-                                .services(Variables.twilioSMSserviceSID) \
-                                .verification_checks \
-                                .create(to='+918317084914', code=otp)
+        verification_check = client.verify.v2.services(
+            Variables.twilioSMSserviceSID
+        ).verification_checks.create(to="+918317084914", code=otp)
         print(verification_check.status)
-        if verification_check.status=="approved":
-            return jsonify({"message":"OTP verified"}),200
+        if verification_check.status == "approved":
+            return jsonify({"message": "OTP verified"}), 200
         else:
-            return jsonify({"message":"OTP incorrect"}),400
+            return jsonify({"message": "OTP incorrect"}), 400
     except Exception as e:
-        return jsonify({"Error": "Error validating code"}),400
+        return jsonify({"Error": "Error validating code"}), 400
+
 
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
         db.session.commit()
-        print("LEN :",len(sys.argv))
+        print("LEN :", len(sys.argv))
     app.run(debug=Variables.debug, host=Variables.host, port=Variables.port)
 
 
