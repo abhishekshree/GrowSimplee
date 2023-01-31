@@ -736,9 +736,9 @@ def get_all_admin_daystarted():
 @app.route("/get/drivers", methods=["GET", "POST"])  # returns all drivers
 def get_drivers():
     drivers = Driver.query.all()
-    out = ""
+    out = []
     for driver in drivers:
-        out += f"Driver ID:\t{driver.id}\tAdmin ID:\t{driver.admin_id}\n"
+        out.append({"driver_id":driver.id, "admin_id":driver.admin_id})
     return out, 200
 
 
