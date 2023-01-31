@@ -127,7 +127,7 @@ def duration_between(point1, point2):
 
 def insert_dynamic_points(admin_id):
     def cost(dist,time):
-        return 0.5*dist + 0.5*time
+        return dist + 100*time
 
     admin = Admin.query.get_or_404(admin_id)
     dynamic_point = json.loads(admin.dynamic_point)
@@ -152,27 +152,61 @@ def insert_dynamic_points(admin_id):
 
     route_idx=-1
     point_idx=-1
+    time_change = 0
 
     
     for k, route in enumerate(routes): 
         for i, point in enumerate(route[:-1]):
             if(point["delivered"] == True):
                 continue
-            next_point = route[i+1]
-            curr_dist = distance_between(point, dynamic_point) + distance_between(dynamic_point, next_point)- distance_between(point, next_point)
-            curr_time = 0
-            extra_time = duration_between(point, dynamic_point) + duration_between(dynamic_point, next_point)- duration_between(point, next_point)
-            curr_time = extra_time #TODO: ask about the metric for time like what is lasttime, i think arpit's algo tries to take into account the time take for subsequest deliveries if the dynamic deilvery is done but that info is not available so makes no sense
 
-            curr_cost = cost(curr_dist, curr_time)
+            max_capacity = 0
+            curr_capacity = 0
+            for j in range(0, len(route)):
+                # TODO: make hub node volume to be zero
+                if(route[j]["pickup"] == False):
+                    curr_capacity += route[j]["volume"]
+            for j in range(0, len(route)):
+                if(route[j]["pickup"] == False):
+                    curr_capacity -= route[j]["volume"]
+                else:
+                    curr_capacity += route[j]["volume"]
+                if(j >= i):
+                    max_capacity = max(max_capacity, curr_capacity)
+
+            if(max_capacity + dynamic_point["volume"] > 640000):
+                continue
+                
+            next_point = route[i+1]
+            extra_dist = distance_between(point, dynamic_point) + distance_between(dynamic_point, next_point) - distance_between(point, next_point)
+            extra_time = duration_between(point, dynamic_point) + duration_between(dynamic_point, next_point) - duration_between(point, next_point)
+            time_window_penalty = 0
+
+            route_end_time = route[-1]["EDT"]
+            #TODO: change 18000 to hub node ka end time
+            if(route_end_time + extra_time > 18000):
+                continue
+            # curr_time = extra_time #TODO: ask about the metric for time like what is lasttime, i think arpit's algo tries to take into account the time take for subsequest deliveries if the dynamic deilvery is done but that info is not available so makes no sense
+
+            for j in range(i+1, len(route)):
+                time_window_penalty += max(0, route[j]["EDT"] + extra_time - route[j]["EDD"]) - max(0, route[j]["EDT"] - route[j]["EDD"])
+
+            curr_cost = cost(extra_dist, time_window_penalty)
             if (curr_cost<min_cost):
                 min_cost = curr_cost
                 route_idx = k
                 point_idx = i
+                time_change = extra_time
     
     dynamic_point["delivered"] = False
     driver = Driver.query.get_or_404(route_idx+1) #driver id is 1 indexed
-    new_path = driver.path
+    new_path = json.loads(driver.path)
+    offset = duration_between(new_path[point_idx], dynamic_point)
+
+    dynamic_point["EDT"]=offset+new_path[point_idx]["EDT"]
+    for i in range(point_idx+1, len(route)):
+        new_path[i]["EDT"] += time_change
+
     new_path.insert(point_idx+1, dynamic_point)
     driver.path = json.dumps(new_path)
 
@@ -316,7 +350,9 @@ def add_dynamic_point():
             "product_id": product_id,
             "latitude": latitude,
             "longitude": longitude,
-            "pickup": True
+            "pickup": True,
+            # TODO: see to the EDD of random points based on the input format
+            "EDD": 18000,
         }
 
         # TODO: Append the dynamic points to a list not a single dynamic point
@@ -392,7 +428,9 @@ def gen_map():
         for driver_path in output_map:
             driver_map = []
             for loc in driver_path:
-                driver_map.append(input_map[loc])
+                output_loc = input_map[loc[0]]
+                output_loc["EDT"] = loc[1]
+                driver_map.append(output_loc)
             final_output["Routes"].append(driver_map)
         admin.output_map = json.dumps(final_output["Routes"])
 
@@ -553,8 +591,12 @@ def reorder():
             return jsonify({"message": "New path not provided"})
         
         driver = Driver.query.get_or_404(request.get_json()["driver_id"])
-        driver.path = json.dumps(request.get_json()["new_path"])
-        db.session.commit()
+        new_path = request.get_json()["new_path"]
+        for i in range(1, len(new_path)):
+            new_path[i]["EDT"] = new_path[i-1]["EDT"] + duration_between(new_path[i-1], new_path[i])
+
+        driver.path = json.dumps(new_path)
+-       db.session.commit()
 
 @app.route("/post/driver/removepoint", methods=["POST"])
 def remove_point():
@@ -566,7 +608,13 @@ def remove_point():
         
         driver = Driver.query.get_or_404(request.get_json()["driver_id"])
         path = json.loads(driver.path)
-        path.pop(int(request.get_json()["point"]))
+        idx_to_remove = int(request.get_json()["point"])
+        path.pop(idx_to_remove)
+        for i in range(idx_to_remove-1, len(path)-1):
+            path[i+1]["EDT"] = path[i]["EDT"] + duration_between(path[i], path[i+1])
+
+
+        
         driver.path = json.dumps(path)
         db.session.commit()
 
