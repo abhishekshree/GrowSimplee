@@ -132,6 +132,28 @@ def duration_between(point1, point2):
     r = r.json()
     return r["durations"][0][1]
 
+def distance_duration_between(url, point):
+    url = f"{point['longitude']},{point['latitude']};{url}"
+
+    r = requests.get(
+        f"{Variables.osrm}/table/v1/driving/{url}",
+        params={
+            "annotations": "distance,duration",
+            "destinations": "0"
+            },
+    )
+    r = r.json()
+
+    r1 = requests.get(
+        f"{Variables.osrm}/table/v1/driving/{url}",
+        params={
+            "annotations": "distance,duration",
+            "sources": "0"
+            },
+    )
+    r1 = r1.json()
+    return r["distances"], r["durations"], r1["distances"][0], r1["durations"][0]
+
 
 def insert_dynamic_points(admin_id):
     def cost(dist, time):
@@ -163,6 +185,19 @@ def insert_dynamic_points(admin_id):
     point_idx = -1
     time_change = 0
 
+    coord_url = ""
+    for k, route in enumerate(routes):
+        for i, point in enumerate(route):
+            coord_url += f"{point['longitude']},{point['latitude']};"
+
+    coord_url = coord_url[:-1]
+    dist_to_matrix, dur_to_matrix, dist_from_matrix, dur_from_matrix = distance_duration_between(coord_url, dynamic_point)
+    # print(dist_to_matrix)
+    # print(dur_to_matrix)
+    # print(dist_from_matrix)
+    # print(dur_from_matrix)
+
+    idx = 1
     for k, route in enumerate(routes):
         for i, point in enumerate(route[:-1]):
             if point["delivered"] == True:
@@ -187,16 +222,17 @@ def insert_dynamic_points(admin_id):
 
             next_point = route[i + 1]
             extra_dist = (
-                distance_between(point, dynamic_point)
-                + distance_between(dynamic_point, next_point)
+                dist_to_matrix[idx][0]
+                + dist_from_matrix[idx+1]
                 - distance_between(point, next_point)
             )
             extra_time = (
-                duration_between(point, dynamic_point)
-                + duration_between(dynamic_point, next_point)
-                - duration_between(point, next_point)
+                dur_to_matrix[idx][0]
+                + dur_from_matrix[idx+1]
+                - (next_point["EDT"] - point["EDT"])
             )
             time_window_penalty = 0
+            idx += 1
 
             route_end_time = route[-1]["EDT"]
             # TODO: change 18000 to hub node ka end time
@@ -215,6 +251,7 @@ def insert_dynamic_points(admin_id):
                 route_idx = k
                 point_idx = i
                 time_change = extra_time
+        idx += 1
 
     dynamic_point["delivered"] = False
     driver = Driver.query.get_or_404(
