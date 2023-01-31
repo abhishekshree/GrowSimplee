@@ -12,6 +12,7 @@ from flask_cors import CORS, cross_origin
 import requests
 import sys
 import geocoder
+from twilio.rest import Client
 
 
 UPLOAD_FOLDER = Variables.uploadFolder
@@ -450,13 +451,6 @@ def get_admin_input():
     map_data = json.loads(admin.input_map) if admin.input_map else []
     return jsonify(map_data), 200
 
-
-
-
-
-
-
-
 @app.route("/get/coordinates", methods=["GET", "POST"])
 def coordinates():
     # get coordinates from the dataframe and return it as a json
@@ -570,6 +564,39 @@ def remove_point():
         driver.path = json.dumps(path)
         db.session.commit()
 
+@app.route("/post/generateOTP",methods=["POST"])
+def generate_otp():
+    account_sid = Variables.twilioAccountSID
+    auth_token = Variables.twilioAuthToken
+    client = Client(account_sid, auth_token)
+    verification = client.verify \
+                    .v2 \
+                    .services(Variables.twilioSMSserviceSID) \
+                    .verifications \
+                    .create(to='+918317084914', channel='sms')
+    return jsonify({"message":"OTP generated"}),200
+
+@app.route("/post/verifyOTP",methods=["POST"])
+def verify_otp():
+    if "otp" not in request.get_json():
+        return jsonify({"message": "OTP not provided"})
+    otp = request.get_json()["otp"]
+    account_sid = Variables.twilioAccountSID
+    auth_token = Variables.twilioAuthToken
+    client = Client(account_sid, auth_token)
+    try:
+        verification_check = client.verify \
+                                .v2 \
+                                .services(Variables.twilioSMSserviceSID) \
+                                .verification_checks \
+                                .create(to='+918317084914', code=otp)
+        print(verification_check.status)
+        if verification_check.status=="approved":
+            return jsonify({"message":"OTP verified"}),200
+        else:
+            return jsonify({"message":"OTP incorrect"}),400
+    except Exception as e:
+        return jsonify({"Error": "Error validating code"}),400
 
 if __name__ == "__main__":
     with app.app_context():

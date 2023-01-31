@@ -22,3 +22,7 @@ class Variables:
     time_penalty: int = 100
     drop_penalty: int = 1000000
     timeout: int = 100
+    # twilio
+    twilioAccountSID: str = "AC2c3f0629857d4cd25d0a5a809604e711"
+    twilioAuthToken: str = "d373c4aac3353de2045b9937c7c98135"
+    twilioSMSserviceSID: str = "VA21497fbb7dafd38266628c025ebb5aef"
