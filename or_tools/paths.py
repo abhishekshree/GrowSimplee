@@ -58,12 +58,15 @@ class PathGen:
         data["time"] = self.duration_matrix
         data["num_locations"] = len(self.distance_matrix)
         # The time windows are based on the edd of different items
-        data["time_window"] = []
+        data["time_windows"] = []
         for loc in self.input_map:
-            data["time_windows"].append((0, loc["EDT"]))
+            data["time_windows"].append((0, loc["EDD"]))
         # data["time_windows"] = [(0, 15000) for i in range(data['num_locations'])]
         #the demands are based on the output of the cv model
-        data["demands"] = [random.randint(27, 16001) for i in range(data['num_locations'])]
+        # data["demands"] = [random.randint(27, 16001) for i in range(data['num_locations'])]
+        data["demands"] = []
+        for loc in self.input_map:
+            data["demands"].append(loc["volume"])
         data["num_vehicles"] = self.num_drivers
         #Fixed to use the bigger bag out of the two
         data["vehicle_capacity"] = 640000
@@ -140,11 +143,11 @@ class PathGen:
     # TODO: return unrouted points
     def print_solution(self, manager, routing, assignment, num_locs):
         time_dimension = routing.GetDimensionOrDie('Time')
+        points_accessed = set([])
         for vehicle_id in range(manager.GetNumberOfVehicles()):
             index = routing.Start(vehicle_id)
             # print(f"Route for vehicle {vehicle_id}:")
             route = []
-            points_accessed = set([])
             while not routing.IsEnd(index):
                 node_index = manager.IndexToNode(index)
                 time_var = time_dimension.CumulVar(index)

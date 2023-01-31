@@ -132,9 +132,10 @@ def insert_dynamic_points(admin_id):
 
     admin = Admin.query.get_or_404(admin_id)
     dynamic_point = json.loads(admin.dynamic_point)
-
-    admin.input_map = json.dumps(json.loads(admin.input_map).append(dynamic_point))
-
+    input_map = json.loads(admin.input_map)
+    input_map.append(dynamic_point)
+    admin.input_map = json.dumps(input_map)
+    db.session.commit()
     drivers =Driver.query.filter(Driver.admin_id ==admin_id).all()
     # undelivered_routes=[]
     # for driver in drivers:
@@ -149,7 +150,7 @@ def insert_dynamic_points(admin_id):
     for driver in drivers:
         routes.append(json.loads(driver.path))
 
-    min_cost = 1e9
+    min_cost = 1e18
 
     route_idx=-1
     point_idx=-1
@@ -200,18 +201,19 @@ def insert_dynamic_points(admin_id):
                 time_change = extra_time
     
     dynamic_point["delivered"] = False
-    driver = Driver.query.get_or_404(route_idx+1) #driver id is 1 indexed
+    driver = Driver.query.get_or_404(str(admin_id) + "_" + str(route_idx+1)) #driver id is 1 indexed
     new_path = json.loads(driver.path)
     offset = duration_between(new_path[point_idx], dynamic_point)
 
     dynamic_point["EDT"]=offset+new_path[point_idx]["EDT"]
-    for i in range(point_idx+1, len(route)):
+    for i in range(point_idx+1, len(new_path)):
         new_path[i]["EDT"] += time_change
 
     new_path.insert(point_idx+1, dynamic_point)
     driver.path = json.dumps(new_path)
 
     db.session.commit()
+    return route_idx + 1
     
 
 
@@ -259,7 +261,6 @@ def post_admin():
       
         admin = Admin()
 
-
         db.session.add(admin)
         db.session.commit()
         return jsonify({"message": "Admin successfully created", "id": admin.id})
@@ -306,7 +307,7 @@ def input():
 
 
 @app.route(
-    "/post/admin/dynamicpoint", methods=["POST"]
+    "/post/admin/dynamicPoint", methods=["POST"]
 )  # Allows admin to add a dynamic point
 def add_dynamic_point():
     if request.method == "POST":
@@ -328,15 +329,18 @@ def add_dynamic_point():
         if "product_id" not in request.get_json():
             return jsonify({"message": "Product ID not received"})
 
+        if "volume" not in request.get_json():
+            return jsonify({"message": "Volume not received"})
+
         admin_id = request.get_json()["admin_id"]
         admin = Admin.query.get_or_404(admin_id)
-        print(admin_id)
 
         address = request.get_json()["address"]
         location = request.get_json()["location"]
         awb = request.get_json()["awb"]
         name = request.get_json()["name"]
         product_id = request.get_json()["product_id"]
+        volume = request.get_json()["volume"]
 
         latitude, longitude = get_geocoding_for(address)
         
@@ -346,7 +350,7 @@ def add_dynamic_point():
         point = {
             "address": address,
             "location": location,
-            "awb": awb,
+            "AWB": awb,
             "name": name,
             "product_id": product_id,
             "latitude": latitude,
@@ -354,18 +358,18 @@ def add_dynamic_point():
             "pickup": True,
             # TODO: see to the EDD of random points based on the input format
             "EDD": 18000,
+            "volume": volume
         }
 
         # TODO: Append the dynamic points to a list not a single dynamic point
         admin.dynamic_point = json.dumps(point)       
         db.session.commit()
 
-        insert_dynamic_points(admin_id)
-        db.session.commit()
-        return jsonify({"message": "Point successfully added"})
+        driver_id = insert_dynamic_points(admin_id)
+        return jsonify({"message": f"Point successfully addedin the route of driver with id {driver_id}"})
 
 
-@app.route("/get/admin/dynamicpoint")  # returns the dynamic points added by an admin
+@app.route("/get/admin/dynamicPoint")  # returns the dynamic points added by an admin
 def get_dynamic_point():
     if "admin_id" not in request.args:
         return jsonify({"message": "Admin id not specified"})
@@ -405,6 +409,8 @@ def gen_map():
             idx_map.append({
                 "latitude": input_map[i]["latitude"],
                 "longitude": input_map[i]["longitude"],
+                "EDD": input_map[i]["EDD"],
+                "volume": input_map[i]["volume"]
             })
         
         hub_node = int(request.get_json()["hub_node"])
@@ -436,10 +442,12 @@ def gen_map():
         admin.output_map = json.dumps(final_output["Routes"])
 
         drivers = Driver.query.filter_by(admin_id=admin_id).all()
-        for route, driver in zip (final_output["Routes"], drivers):
-                for point in route: 
-                    point["delivered"] = False
-                driver.path = json.dumps(route)
+        driver_idx = 0
+        for route in final_output["Routes"]:
+            for point in route: 
+                point["delivered"] = False
+            drivers[driver_idx].path = json.dumps(route)
+            driver_idx += 1
             
         db.session.commit()
         return jsonify(final_output), 200
@@ -590,7 +598,7 @@ def reorder():
             new_path[i]["EDT"] = new_path[i-1]["EDT"] + duration_between(new_path[i-1], new_path[i])
 
         driver.path = json.dumps(new_path)
--       db.session.commit()
+        db.session.commit()
 
 @app.route("/post/driver/removepoint", methods=["POST"])
 def remove_point():
