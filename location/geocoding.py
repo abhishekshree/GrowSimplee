@@ -38,6 +38,23 @@ class Geocoding:
             latlngs.append(result.latlng)
         return latlngs
 
+    def calc_distance(self, lat, long):
+        bang_coord = [12.97674656, 77.57527924]
+        dist_y = ((lat - bang_coord[0]) * 20004) / 180
+        dist_x = ((long - bang_coord[1]) * 40075) / 360
+        dist = (dist_x**2 + dist_y**2) ** 0.5
+        return dist
+
+    def remove_coords(self):
+        new_map = []
+        # print(len(self.result))
+        for addr in self.result:
+            if self.calc_distance(addr["latitude"], addr["longitude"]) <= 20:
+                new_map.append(addr)
+            else:
+                print(addr)
+        self.result = new_map
+
     def generate(self):
         addrs = self.address_df["address"]
         location = self.address_df["location"]
@@ -81,4 +98,5 @@ class Geocoding:
                     "pickup": pickup[i],  ## DO NOT KNOW THE FORMAT OF THIS YET
                 }
             )
+        self.remove_coords()
         return self.result

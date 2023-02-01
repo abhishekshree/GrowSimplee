@@ -13,6 +13,7 @@ import requests
 import sys
 import geocoder
 from twilio.rest import Client
+import copy
 
 
 UPLOAD_FOLDER = Variables.uploadFolder
@@ -116,7 +117,7 @@ def distance_between(point1, point2):
         params={"annotations": "distance"},
     )
     r = r.json()
-    return r["distances"][0][1]
+    return int(r["distances"][0][1])
 
 
 def duration_between(point1, point2):
@@ -130,7 +131,7 @@ def duration_between(point1, point2):
         params={"annotations": "duration"},
     )
     r = r.json()
-    return r["durations"][0][1]
+    return int(r["durations"][0][1])
 
 def distance_duration_between(url, point):
     url = f"{point['longitude']},{point['latitude']};{url}"
@@ -154,6 +155,92 @@ def distance_duration_between(url, point):
     r1 = r1.json()
     return r["distances"], r["durations"], r1["distances"][0], r1["durations"][0]
 
+def insert_dynamic_points_2(admin_id):
+    def cost(dist,time):
+        return dist + 100*time
+
+    admin = Admin.query.get_or_404(admin_id)
+    dynamic_point = json.loads(admin.dynamic_point)
+
+    input_map = json.loads(admin.input_map)
+    input_map.append(dynamic_point)
+    admin.input_map = json.dumps(input_map)
+    db.session.commit()
+    drivers =Driver.query.filter(Driver.admin_id ==admin_id).all()
+    # undelivered_routes=[]
+    # for driver in drivers:
+    #     undelivered_routes.append(get_undelivered_points(driver.id))
+    # distance increment
+    # time window lapse
+    # capacity check
+    # trip_window check
+    routes = []
+    for driver in drivers:
+        routes.append(json.loads(driver.path))
+
+    min_cost = 1e18
+
+    route_idx=-1
+    point_idx=-1
+    time_change = 0
+    
+    for k, route in enumerate(routes): 
+        for i, point in enumerate(route[:-1]):
+            if(point["delivered"] == True):
+                continue
+            max_capacity = 0
+            curr_capacity = 0
+            for j in range(0, len(route)):
+                # TODO: make hub node volume to be zero
+                if(route[j]["pickup"] == False):
+                    curr_capacity += route[j]["volume"]
+            for j in range(0, len(route)):
+                if(route[j]["pickup"] == False):
+                    curr_capacity -= route[j]["volume"]
+                else:
+                    curr_capacity += route[j]["volume"]
+                if(j >= i):
+                    max_capacity = max(max_capacity, curr_capacity)
+            if(max_capacity + dynamic_point["volume"] > 640000):
+                continue
+                
+            next_point = route[i+1]
+            extra_dist = distance_between(point, dynamic_point) + distance_between(dynamic_point, next_point) - distance_between(point, next_point)
+            extra_time = duration_between(point, dynamic_point) + duration_between(dynamic_point, next_point) - duration_between(point, next_point)
+            time_window_penalty = 0
+            route_end_time = route[-1]["EDT"]
+            #TODO: change 18000 to hub node ka end time
+            if(route_end_time + extra_time > 18000):
+                continue
+            # curr_time = extra_time #TODO: ask about the metric for time like what is lasttime, i think arpit's algo tries to take into account the time take for subsequest deliveries if the dynamic deilvery is done but that info is not available so makes no sense
+            for j in range(i+1, len(route)):
+                time_window_penalty += max(0, route[j]["EDT"] + extra_time - route[j]["EDD"]) - max(0, route[j]["EDT"] - route[j]["EDD"])
+
+            if k==0 and i==0:
+                print(extra_dist, " ", extra_time, " ", next_point["EDT"], " ", point["EDT"])
+
+            curr_cost = cost(extra_dist, time_window_penalty)
+            if (curr_cost<min_cost):
+                min_cost = curr_cost
+                route_idx = k
+                point_idx = i
+                time_change = extra_time
+
+    dynamic_point["delivered"] = False
+    driver = Driver.query.get_or_404(str(admin_id) + "_" + str(route_idx+1)) #driver id is 1 indexed
+    prev_path = json.loads(driver.path)
+    new_path = json.loads(driver.path)
+    offset = duration_between(new_path[point_idx], dynamic_point)
+
+    dynamic_point["EDT"]=offset+new_path[point_idx]["EDT"]
+    for i in range(point_idx+1, len(new_path)):
+        new_path[i]["EDT"] += time_change
+
+    new_path.insert(point_idx+1, dynamic_point)
+    driver.path = json.dumps(new_path)
+
+    db.session.commit()
+    return prev_path, route_idx + 1, min_cost, point_idx
 
 def insert_dynamic_points(admin_id):
     def cost(dist, time):
@@ -192,10 +279,6 @@ def insert_dynamic_points(admin_id):
 
     coord_url = coord_url[:-1]
     dist_to_matrix, dur_to_matrix, dist_from_matrix, dur_from_matrix = distance_duration_between(coord_url, dynamic_point)
-    # print(dist_to_matrix)
-    # print(dur_to_matrix)
-    # print(dist_from_matrix)
-    # print(dur_from_matrix)
 
     idx = 1
     for k, route in enumerate(routes):
@@ -222,15 +305,20 @@ def insert_dynamic_points(admin_id):
 
             next_point = route[i + 1]
             extra_dist = (
-                dist_to_matrix[idx][0]
-                + dist_from_matrix[idx+1]
-                - distance_between(point, next_point)
+                int(dist_to_matrix[idx][0])
+                + int(dist_from_matrix[idx+1])
+                - next_point["prev_distance"]
             )
+
             extra_time = (
-                dur_to_matrix[idx][0]
-                + dur_from_matrix[idx+1]
-                - (next_point["EDT"] - point["EDT"])
+                int(dur_to_matrix[idx][0])
+                + int(dur_from_matrix[idx+1])
+                - (next_point["EDT"] - point["EDT"]) + 300
             )
+
+            if int(dur_to_matrix[idx][0]) == 0 or int(dur_from_matrix[idx+1]) == 0:
+                extra_time -= 300
+            
             time_window_penalty = 0
             idx += 1
 
@@ -257,10 +345,18 @@ def insert_dynamic_points(admin_id):
     driver = Driver.query.get_or_404(
         str(admin_id) + "_" + str(route_idx + 1)
     )  # driver id is 1 indexed
+    prev_path = json.loads(driver.path)
     new_path = json.loads(driver.path)
     offset = duration_between(new_path[point_idx], dynamic_point)
 
-    dynamic_point["EDT"] = offset + new_path[point_idx]["EDT"]
+    if(offset == 0):
+        dynamic_point["EDT"] = offset + new_path[point_idx]["EDT"]
+    else:
+        dynamic_point["EDT"] = offset + new_path[point_idx]["EDT"] + 300
+
+    dynamic_point["prev_distance"] = distance_between(new_path[point_idx], dynamic_point)
+    new_path[point_idx + 1]["prev_distance"] = distance_between(dynamic_point, new_path[point_idx + 1])
+
     for i in range(point_idx + 1, len(new_path)):
         new_path[i]["EDT"] += time_change
 
@@ -268,7 +364,7 @@ def insert_dynamic_points(admin_id):
     driver.path = json.dumps(new_path)
 
     db.session.commit()
-    return route_idx + 1
+    return prev_path, route_idx + 1, min_cost, point_idx
 
 
 def allowed_file(filename):
@@ -426,10 +522,24 @@ def add_dynamic_point():
         admin.dynamic_point = json.dumps(point)
         db.session.commit()
 
-        driver_id = insert_dynamic_points(admin_id)
+        input_map = json.loads(admin.input_map)
+        prev_path_1, driver_id_1, min_cost_1, pdx1 = insert_dynamic_points(admin_id)
+        prev_path_2, driver_id_2, min_cost_2, pdx2 = insert_dynamic_points(admin_id)
+
+        driver_1 = Driver.query.get_or_404(
+            str(admin_id) + "_" + str(driver_id_1)
+        )
+        driver_2 = Driver.query.get_or_404(
+            str(admin_id) + "_" + str(driver_id_2)
+        )
+
+        driver_2.path = json.dumps(prev_path_2)
+        driver_1.path = json.dumps(prev_path_1)
+        admin.input_map = json.dumps(input_map)
+        db.session.commit()
         return jsonify(
             {
-                "message": f"Point successfully addedin the route of driver with id {driver_id}"
+                "message": f"Point successfully added in the route of driver with id {driver_id_1} with {min_cost_1} at {pdx1} and {driver_id_2} with {min_cost_2} at {pdx2}"
             }
         )
 
@@ -480,7 +590,6 @@ def gen_map():
         hub_node = int(request.get_json()["hub_node"])
         # print("generate path")
         pg = PathGen(idx_map, num_drivers, hub_node)
-        pg.remove_coords()
         # print("Enter output")
         output_map, unrouted_idx = pg.get_output_map()
 
@@ -498,8 +607,9 @@ def gen_map():
         for driver_path in output_map:
             driver_map = []
             for loc in driver_path:
-                output_loc = input_map[loc[0]]
+                output_loc = copy.deepcopy(input_map[loc[0]])
                 output_loc["EDT"] = loc[1]
+                output_loc["prev_distance"] = loc[2]
                 driver_map.append(output_loc)
             final_output["Routes"].append(driver_map)
         admin.output_map = json.dumps(final_output["Routes"])
@@ -546,10 +656,23 @@ def get_drivers_for_admin():
     out = []
 
     drivers = Driver.query.filter(Driver.admin_id == request.args["admin_id"]).all()
-    ## TODO: improve the format of this output
 
     for driver in drivers:
         out.append({"Driver id": driver.id, "Admin:": driver.admin_id})
+    return jsonify(out)
+
+@app.route(
+    "/get/admin/driverRoutes", methods=["GET"]
+)  
+def get_driver_routes_for_admin():
+    if "admin_id" not in request.args:
+        return jsonify({"message": "Admin id not provided"})
+    out = []
+
+    drivers = Driver.query.filter(Driver.admin_id == request.args["admin_id"]).all()
+
+    for driver in drivers:
+        out.append({"Driver id": driver.id, "Route:": json.loads(driver.path)})
     return jsonify(out)
 
 

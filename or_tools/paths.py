@@ -17,19 +17,6 @@ class PathGen:
         self.duration_matrix = []
         self.unrouted_points = []
 
-    def calc_distance(self, lat, long):
-        bang_coord = [12.97674656, 77.57527924]
-        dist_y = ((lat - bang_coord[0]) * 20004) / 180
-        dist_x = ((long - bang_coord[1]) * 40075) / 360
-        dist = (dist_x**2 + dist_y**2) ** 0.5
-        return dist
-
-    def remove_coords(self):
-        new_map = []
-        for addr in self.input_map:
-            if self.calc_distance(addr["latitude"], addr["longitude"]) <= 20:
-                new_map.append(addr)
-        self.input_map = new_map
 
     def distance_duraton_matrix(self):
         coord_str = ""
@@ -164,11 +151,13 @@ class PathGen:
                 time_var = time_dimension.CumulVar(index)
                 points_accessed.add(node_index)
                 # print(f"{node_index}->", end="")
-                route.append((node_index, assignment.Max(time_var)))
+                route.append((node_index, assignment.Max(time_var), 0))
                 index = assignment.Value(routing.NextVar(index))
             # print(f"{manager.IndexToNode(index)}")
             time_var = time_dimension.CumulVar(index)
-            route.append((manager.IndexToNode(index), assignment.Max(time_var)))
+            route.append((manager.IndexToNode(index), assignment.Max(time_var), 0))
+            for i in range(1, len(route)):
+                route[i] = (route[i][0], route[i][1], self.distance_matrix[route[i - 1][0]][route[i][0]])
             if len(route) > 2:
                 self.output_map.append(route)
 
