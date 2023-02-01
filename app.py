@@ -777,6 +777,7 @@ def verify_otp():
         print(verification_check.status)
         if verification_check.status == "approved":
             return jsonify({"message": "OTP verified"}), 200
+
         else:
             return jsonify({"message": "OTP incorrect"}), 400
     except Exception as e:
