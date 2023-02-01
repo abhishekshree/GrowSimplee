@@ -35,7 +35,7 @@ class Admin(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     input_map = db.Column(db.Text, default="[]")
     num_drivers = db.Column(db.Integer, default=0)
-    output_map = db.Column(db.Text, default="[]")
+    output_map = db.Column(db.Text, default=None)
     # date = db.Column(db.DateTime, default=datetime.utcnow)
     dynamic_point = db.Column(db.Text)
     unrouted_points = db.Column(db.Text, default="[]")
@@ -658,7 +658,7 @@ def get_drivers_for_admin():
     drivers = Driver.query.filter(Driver.admin_id == request.args["admin_id"]).all()
 
     for driver in drivers:
-        out.append({"Driver id": driver.id, "Admin:": driver.admin_id})
+        out.append({"driver_id": driver.id, "admin_id:": driver.admin_id})
     return jsonify(out)
 
 @app.route(
@@ -726,7 +726,7 @@ def get_all_admin_daystarted():
     admins = Admin.query.all()
     admin_daystarted = {}
     for admin in admins:
-        if len(eval(admin.output_map)) > 0:
+        if admin.output_map:
             admin_daystarted[admin.id] = True
         else:
             admin_daystarted[admin.id] = False
