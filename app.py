@@ -701,7 +701,7 @@ def reorder():
         new_path = request.get_json()["new_path"]
         for i in range(1, len(new_path)):
             dur = duration_between(new_path[i - 1], new_path[i])
-            if dur != 0:
+            if dur != 0 and i < len(new_path) - 1:
                 dur += 300
             new_path[i]["EDT"] = new_path[i - 1]["EDT"] + dur
 
@@ -725,7 +725,14 @@ def remove_point():
         idx_to_remove = int(request.get_json()["point"])
         path.pop(idx_to_remove)
         for i in range(idx_to_remove - 1, len(path) - 1):
-            path[i + 1]["EDT"] = path[i]["EDT"] + duration_between(path[i], path[i + 1])
+            dur = duration_between(path[i], path[i + 1])
+            if dur != 0 and i < len(path) - 2:
+                dur += 300
+            path[i + 1]["EDT"] = path[i]["EDT"] + dur
+
+        path[idx_to_remove]["prev_distance"] = distance_between(
+            path[idx_to_remove - 1], path[idx_to_remove]
+        )
 
         driver.path = json.dumps(path)
         db.session.commit()
