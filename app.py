@@ -326,10 +326,15 @@ def insert_dynamic_points(admin_id):
             extra_time = (
                 int(dur_to_matrix[idx][0])
                 + int(dur_from_matrix[idx+1])
-                - (next_point["EDT"] - point["EDT"]) + 300
+                - (next_point["EDT"] - point["EDT"]) + 600
             )
 
-            if int(dur_to_matrix[idx][0]) == 0 or int(dur_from_matrix[idx+1]) == 0:
+            if int(dur_to_matrix[idx][0]) == 0 and int(dur_from_matrix[idx+1]) == 0:
+                extra_time -= 600
+            elif int(dur_to_matrix[idx][0]) == 0 or int(dur_from_matrix[idx+1]) == 0:
+                # print(point)
+                # print(next_point)
+                # print(int(dur_to_matrix[idx][0]), " ", int(dur_from_matrix[idx+1]), " ", (next_point["EDT"] - point["EDT"]))
                 extra_time -= 300
             
             time_window_penalty = 0
@@ -361,6 +366,7 @@ def insert_dynamic_points(admin_id):
     prev_path = json.loads(driver.path)
     new_path = json.loads(driver.path)
     offset = duration_between(new_path[point_idx], dynamic_point)
+    print(offset, " ", time_change)
 
     if(offset == 0):
         dynamic_point["EDT"] = offset + new_path[point_idx]["EDT"]
@@ -377,7 +383,7 @@ def insert_dynamic_points(admin_id):
     driver.path = json.dumps(new_path)
 
     db.session.commit()
-    return prev_path, route_idx + 1, min_cost, point_idx
+    return prev_path, route_idx + 1
 
 
 def allowed_file(filename):
@@ -426,8 +432,7 @@ def post_admin():
 
         db.session.add(admin)
         db.session.commit()
-        return jsonify({"message": "Admin successfully created", "id": admin.id})
-        # return jsonify({"message": "Admin successfully added", "id": admin_id}), 200
+        return jsonify({"message": "Admin successfully created", "id": admin.id})   
 
 
 @app.route(
@@ -536,23 +541,26 @@ def add_dynamic_point():
         db.session.commit()
 
         input_map = json.loads(admin.input_map)
-        prev_path_1, driver_id_1, min_cost_1, pdx1 = insert_dynamic_points(admin_id)
-        prev_path_2, driver_id_2, min_cost_2, pdx2 = insert_dynamic_points(admin_id)
+        prev_path_1, driver_id_1 = insert_dynamic_points(admin_id)
+        # prev_path_2, driver_id_2 = insert_dynamic_points(admin_id)
 
         driver_1 = Driver.query.get_or_404(
             str(admin_id) + "_" + str(driver_id_1)
         )
-        driver_2 = Driver.query.get_or_404(
-            str(admin_id) + "_" + str(driver_id_2)
-        )
+        # driver_2 = Driver.query.get_or_404(
+        #     str(admin_id) + "_" + str(driver_id_2)
+        # )
 
-        driver_2.path = json.dumps(prev_path_2)
-        driver_1.path = json.dumps(prev_path_1)
-        admin.input_map = json.dumps(input_map)
-        db.session.commit()
+        path = json.loads(driver_1.path)
+        # driver_2.path = json.dumps(prev_path_2)
+        # driver_1.path = json.dumps(prev_path_1)
+        # admin.input_map = json.dumps(input_map)
+        # db.session.commit()
+        # assert  driver_id_1 == driver_id_2
         return jsonify(
             {
-                "message": f"Point successfully added in the route of driver with id {driver_id_1} with {min_cost_1} at {pdx1} and {driver_id_2} with {min_cost_2} at {pdx2}"
+                "message": f"Point successfully added in the route of driver with id {driver_id_1}",
+                "path": path
             }
         )
 

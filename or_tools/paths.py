@@ -33,6 +33,9 @@ class PathGen:
         for i in range(0, len(self.distance_matrix)):
             for j in range(0, len(self.distance_matrix)):
                 self.distance_matrix[i][j] = int(self.distance_matrix[i][j])
+                if int(self.duration_matrix[i][j]) == 0:
+                    self.duration_matrix[i][j] = int(self.duration_matrix[i][j])
+                    continue
                 if j != self.hub_node:
                     self.duration_matrix[i][j] = int(self.duration_matrix[i][j]) + 300
                 else:
