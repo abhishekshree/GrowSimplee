@@ -8,3 +8,5 @@ requests==2.25.1
 openpyxl==3.0.9
 flask-cors==3.0.10
 twilio==7.16.2
+scikit-learn==1.2.1
+matplotlib==3.6.3
