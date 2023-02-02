@@ -132,5 +132,7 @@ config/.env
 osrm/
 test.py
 geoapifytest.py
+Geocode.xlsx
+test_geocoding/
 data/upload
 example_response.json
