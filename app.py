@@ -489,7 +489,7 @@ def gen_map():
 
         num_drivers = int(admin.num_drivers)
         hub_node = int(request.get_json()["hub_node"])
-        input_map[i]["EDD"] = 18000
+        input_map[hub_node]["EDD"] = 18000
         # print(input_map)
         idx_map = []
         for i in range(0, len(input_map)):
@@ -540,16 +540,16 @@ def gen_map():
         return jsonify(final_output), 200
 
 
-@app.route("/get/admin/output", methods=["GET"])  # returns the output map of the admin
-def get_admin():
-    if "admin_id" not in request.args:
-        return jsonify({"message": "Admin id not provided"})
+# @app.route("/get/admin/output", methods=["GET"])  # returns the output map of the admin
+# def get_admin():
+#     if "admin_id" not in request.args:
+#         return jsonify({"message": "Admin id not provided"})
 
-    admin_id = request.args.get("admin_id")
+#     admin_id = request.args.get("admin_id")
 
-    admin = Admin.query.get_or_404(admin_id)
-    map_data = json.loads(admin.output_map) if admin.output_map else []
-    return jsonify(map_data), 200
+#     admin = Admin.query.get_or_404(admin_id)
+#     map_data = json.loads(admin.output_map) if admin.output_map else []
+#     return jsonify(map_data), 200
 
 
 @app.route("/get/admin/unrouted", methods=["GET", "POST"])
@@ -576,7 +576,7 @@ def get_drivers_for_admin():
     return jsonify(out)
 
 @app.route(
-    "/get/admin/driverRoutes", methods=["GET"]
+    "/get/admin/output", methods=["GET"]
 )  
 def get_driver_routes_for_admin():
     if "admin_id" not in request.args:
@@ -586,7 +586,7 @@ def get_driver_routes_for_admin():
     drivers = Driver.query.filter(Driver.admin_id == request.args["admin_id"]).all()
 
     for driver in drivers:
-        out.append({"Driver id": driver.id, "Route:": json.loads(driver.path)})
+        out.append(json.loads(driver.path))
     return jsonify(out)
 
 
@@ -614,6 +614,7 @@ def coordinates():
 
 
 ##############DRIVER ROUTES#####################
+
 
 
 @app.route("/get/driver/path", methods=["GET", "POST"])
