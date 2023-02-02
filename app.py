@@ -37,6 +37,7 @@ class Admin(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     input_map = db.Column(db.Text, default="[]")
     num_drivers = db.Column(db.Integer, default=0)
+    day_started = db.Column(db.Boolean, default=False)
     output_map = db.Column(db.Text, default=None)
     # date = db.Column(db.DateTime, default=datetime.utcnow)
     dynamic_point = db.Column(db.Text)
@@ -473,6 +474,18 @@ def get_dynamic_point():
 def hello():
     return "LEN:   " + str(len(sys.argv))
 
+@app.route("/post/admin/end", methods=["POST"])
+def end_day():
+    if request.method == "POST":
+        if "admin_id" not in request.get_json():
+            return jsonify({"message": "Admin id not received"})
+
+        admin_id = request.get_json()["admin_id"]
+        admin = Admin.query.get_or_404(admin_id)
+        admin.day_started = False
+        db.session.commit()
+        return jsonify({"message": "Day ended"})
+
 
 @app.route("/post/admin/start", methods=["POST"])
 def gen_map():
@@ -484,6 +497,8 @@ def gen_map():
 
         admin_id = request.get_json()["admin_id"]
         admin = Admin.query.get_or_404(admin_id)
+        admin.day_started = True
+        db.session.commit()
         input_map = json.loads(admin.input_map)
         # return jsonify((input_map))
 
@@ -641,10 +656,7 @@ def get_all_admin_daystarted():
     admins = Admin.query.all()
     admin_daystarted = {}
     for admin in admins:
-        if admin.output_map:
-            admin_daystarted[admin.id] = True
-        else:
-            admin_daystarted[admin.id] = False
+        admin_daystarted[admin.id] = admin.dayStarted
     return jsonify(admin_daystarted), 200
 
 
