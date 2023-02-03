@@ -743,7 +743,7 @@ def get_remaining_path():
 
 @app.route("/post/driver/reorder", methods=["POST"])
 def reorder():
-    if requests.method == "POST":
+    if request.method == "POST":
         if "driver_id" not in request.get_json():
             return jsonify({"message": "Driver id not provided"})
         if "new_path" not in request.get_json():
@@ -766,7 +766,7 @@ def reorder():
 
 @app.route("/post/driver/removepoint", methods=["POST"])
 def remove_point():
-    if requests.method == "POST":
+    if request.method == "POST":
         if "driver_id" not in request.get_json():
             return jsonify({"message": "Driver id not provided"})
         if "point" not in request.get_json():
