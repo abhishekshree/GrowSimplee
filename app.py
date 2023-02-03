@@ -512,7 +512,16 @@ def get_dynamic_point():
 
 @app.route("/")
 def hello():
-    return "LEN:   " + str(len(sys.argv))
+    # output = json.loads(Admin.query.get_or_404(1).output_map)
+    # return jsonify(len(output))
+    sum =0
+    drivers = Driver.query.filter(Driver.admin_id == 1).all()
+    for d in drivers:
+        path = json.loads(d.path)
+        sum += len(path)
+    
+    return jsonify(sum)
+
 
 @app.route("/post/admin/end", methods=["POST"])
 def end_day():
@@ -708,6 +717,9 @@ def get_drivers():
         out.append({"driver_id":driver.id, "admin_id":driver.admin_id})
     return out, 200
 
+
+
+
 @app.route("/post/driver/delivered", methods=["POST"])
 def driver_delivered():
     if request.method == "POST":
@@ -839,6 +851,7 @@ if __name__ == "__main__":
         db.session.commit()
         print("LEN :", len(sys.argv))
     app.run(debug=Variables.debug, host=Variables.host, port=Variables.port)
+
 
 
 # def add_dynamic_point
