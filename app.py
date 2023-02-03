@@ -15,13 +15,10 @@ import requests
 import sys
 import geocoder
 from twilio.rest import Client
-<<<<<<< HEAD
 import copy
-=======
 from statistics import mean
 from math import dist
 import numpy as np
->>>>>>> removal of blasphemous points
 
 
 UPLOAD_FOLDER = Variables.uploadFolder
