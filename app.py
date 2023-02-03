@@ -136,7 +136,7 @@ def remove_ridiculous_points(admin_id):
         avg_dist = mean(dists)
         std_dist= np.std(dists)
         new_input_map = []
-        for i in range(dists):
+        for i in range(len(dists)):
             if dists[i] < avg_dist + 5*std_dist:
                 new_input_map.append(input_map[i])
             else:
