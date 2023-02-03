@@ -96,16 +96,16 @@ class Driver(db.Model):
 
 #########HELPER FUNCTIONS########
 
-def remove_outliers(admin_id):
-    admin = Admin.query.get_or_404(admin_id)
-    input_map = json.loads(admin.input_map)
-    def norm(point1, point2):
-        return ((int(point1[0]) - int(point2[0])) **2 + (int(point1[1]) - int(point2[1])) **2) ** 0.5 
-    avg = [mean(map(lambda point: int(point["latitude"]), input_map)), mean(map(lambda point: int(point["longitude"]), input_map))] 
-    std= np.std(map(lambda point: norm([point["latitude"], point["longitude"]], avg), input_map))
+# def remove_outliers(admin_id):
+#     admin = Admin.query.get_or_404(admin_id)
+#     input_map = json.loads(admin.input_map)
+#     def norm(point1, point2):
+#         return ((int(point1[0]) - int(point2[0])) **2 + (int(point1[1]) - int(point2[1])) **2) ** 0.5 
+#     avg = [mean(map(lambda point: int(point["latitude"]), input_map)), mean(map(lambda point: int(point["longitude"]), input_map))] 
+#     std= np.std(map(lambda point: norm([point["latitude"], point["longitude"]], avg), input_map))
 
-    z_scores = map(lambda point: norm([point["latitude"], point["longitude"]], avg)/std, input_map)
-    return z_scores
+#     z_scores = map(lambda point: norm([point["latitude"], point["longitude"]], avg)/std, input_map)
+#     return z_scores
     
 
 def get_undelivered_points(driver_id):
