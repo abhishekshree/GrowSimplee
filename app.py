@@ -15,7 +15,13 @@ import requests
 import sys
 import geocoder
 from twilio.rest import Client
+<<<<<<< HEAD
 import copy
+=======
+from statistics import mean
+from math import dist
+import numpy as np
+>>>>>>> removal of blasphemous points
 
 
 UPLOAD_FOLDER = Variables.uploadFolder
@@ -113,6 +119,41 @@ def get_undelivered_points(driver_id):
         if point["delivered"] == False:
             undelivered_points.append(point)
     return undelivered_points
+
+def remove_ridiculous_points(admin_id):
+    admin = Admin.query.get_or_404(admin_id)
+    input_map = json.loads(admin.input_map)
+    
+    removed=0
+    n = len(input_map)
+    while True:
+        flag = True
+        lats = []
+        longs = []
+        for point in input_map:
+            lats.append(point["latitude"])
+            longs.append(point["longitude"])
+        
+        avg = [mean(lats), mean(longs)]
+        dists = [dist([x,y], avg) for x,y in zip(lats,longs)]
+        avg_dist = mean(dists)
+        std_dist= np.std(dists)
+        new_input_map = []
+        for i in range(dists):
+            if dists[i] < avg_dist + 5*std_dist:
+                new_input_map.append(input_map[i])
+            else:
+                flag = False
+                removed+=1
+                if removed>n/20:
+                    break
+        input_map = new_input_map
+        if removed>n/20:
+            break
+        if flag:
+            break
+    admin.input_map = json.dumps(input_map)
+    db.session.commit()
 
 
 def get_geocoding_for(address):
@@ -380,6 +421,7 @@ def input():
             )
 
         put_input_map(admin_id=admin_id, file=file)
+        remove_ridiculous_points(admin_id=admin_id)
         generate_drivers(admin_id=admin_id, n=n)
 
         return jsonify(
