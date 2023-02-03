@@ -434,6 +434,7 @@ def input():
 )  # Allows admin to add a dynamic point
 def add_dynamic_point():
     if request.method == "POST":
+        print(request.get_json())
         if "admin_id" not in request.get_json():
             return jsonify({"message": "Admin id not received"})
 
@@ -463,7 +464,7 @@ def add_dynamic_point():
         awb = request.get_json()["awb"]
         name = request.get_json()["name"]
         product_id = request.get_json()["product_id"]
-        volume = request.get_json()["volume"]
+        volume = float(request.get_json()["volume"])
 
         latitude, longitude = get_geocoding_for(address)
 
@@ -536,8 +537,6 @@ def gen_map():
 
         admin_id = request.get_json()["admin_id"]
         admin = Admin.query.get_or_404(admin_id)
-        admin.day_started = True
-        db.session.commit()
         input_map = json.loads(admin.input_map)
         # return jsonify((input_map))
 
@@ -581,7 +580,8 @@ def gen_map():
                 driver_map.append(output_loc)
             final_output["Routes"].append(driver_map)
         admin.output_map = json.dumps(final_output["Routes"])
-
+        admin.day_started = True
+        db.session.commit()
         drivers = Driver.query.filter_by(admin_id=admin_id).all()
         driver_idx = 0
         for route in final_output["Routes"]:
@@ -695,7 +695,7 @@ def get_all_admin_daystarted():
     admins = Admin.query.all()
     admin_daystarted = {}
     for admin in admins:
-        admin_daystarted[admin.id] = admin.dayStarted
+        admin_daystarted[admin.id] = admin.day_started
     return jsonify(admin_daystarted), 200
 
 
@@ -822,6 +822,15 @@ def verify_otp():
     except Exception as e:
         return jsonify({"Error": "Error validating code"}), 400
 
+@app.route("/put/admin/dayEnd",methods=["PUT"])
+def day_end():
+    if "admin_id" not in request.args:
+        return jsonify({"message":"Admin id not provided"})
+    admin_id = request.args.get("admin_id")
+    admin = Admin.query.get_or_404(admin_id)
+    admin.day_started = False
+    db.session.commit()
+    return jsonify({"message":"Day ended"}),200
 
 if __name__ == "__main__":
     with app.app_context():
