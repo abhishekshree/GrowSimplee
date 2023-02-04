@@ -587,6 +587,7 @@ def gen_map():
         for route in final_output["Routes"]:
             for point in route:
                 point["delivered"] = False
+            route[0]["delivered"] = True
             drivers[driver_idx].path = json.dumps(route)
             driver_idx += 1
 
