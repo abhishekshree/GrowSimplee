@@ -53,15 +53,25 @@ duration_matrix = r["durations"]
 
 max_duration=0
 
+for i in range(len(driver_prefix[:-1])):
+    driver_path_durations=[0]
+    for j in range(driver_prefix[i], driver_prefix[i+1]-1):
+        driver_path_durations.append(duration_matrix[j][j+1])
+    times_to_reach.append(driver_path_durations)
 
-for i in duration_matrix:
+
+for d in times_to_reach:
+    for i in range(1,len(d)):
+        d[i]+=d[i-1]
+
+for i in times_to_reach:
     for j in i:
         max_duration=max(max_duration,j)
 # print(max_duration)
 
-for i in range(len(duration_matrix)):
-    for j in range(len(duration_matrix[i])):
-        duration_matrix[i][j] = duration_matrix[i][j]*time_frame/max_duration
+for i in range(len(times_to_reach)):
+    for j in range(len(times_to_reach[i])):
+        times_to_reach[i][j] = times_to_reach[i][j]*time_frame/max_duration
 
 
 # print(duration_matrix)
@@ -72,18 +82,10 @@ for i in range(len(duration_matrix)):
 
 # print(driver_paths)
 
-for i in range(len(driver_prefix[:-1])):
-    driver_path_durations=[0]
-    for j in range(driver_prefix[i], driver_prefix[i+1]-1):
-        driver_path_durations.append(duration_matrix[j][j+1])
-    times_to_reach.append(driver_path_durations)
 
 
 # print(times_to_reach)
 
-for d in times_to_reach:
-    for i in range(1,len(d)):
-        d[i]+=d[i-1]
 
 # print(times_to_reach)
 # print("LEN D ", len(times_to_reach[0]))
@@ -93,17 +95,27 @@ test = [0]*len(driver_paths[0])
 
 # print(driver_paths[0][-1])
 
+# print(driver_paths[0])
+# print(times_to_reach[0])
 
-for time in range(1,int(time_frame)):
-    t.sleep(0.55)
+for i in range(len(times_to_reach[0])):
+    print(times_to_reach[0][i], "  -  ", driver_paths[0][i])
+
+
+for time in range(0,int(time_frame)):
+    # t.sleep(0.55)
     print("TIME: ", time)
-    for i in range(1,2):
+    for i in range(0,1):
         if driver_completed[i]:
+
             driver_pos[i]=driver_paths[i][-1]
+            print("DELIVERED")
+            print("CURR POINT ", driver_pos[i])
         else:
             if time>=times_to_reach[i][-1]:
                 driver_completed[i]=True
                 driver_pos[i]=driver_paths[i][-1]
+                
                 continue
             while driver_locs[i]-1< len(times_to_reach) and time>=times_to_reach[i][driver_locs[i]]:
                 driver_locs[i]+=1
