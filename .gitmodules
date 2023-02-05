@@ -1,0 +1,3 @@
+[submodule "gs-frontend"]
+	path = gs-frontend
+	url = https://github.com/abhishekshree/gs-frontend
