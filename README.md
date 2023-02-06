@@ -1,29 +1,17 @@
-# gs-backend
-This is something
+# Hub Management | Grow Simplee
 
+This is a part of the submission for inter IIT Tech Meet 11.0 for the problem statement Route Planning for Optimized On Time Delivery by [Grow Simplee](https://interiit-tech.org/images/ps/High_GS.pdf)
 
-## Instructions to run locally
+## Steps to Run
 
-1. Run:
-```bash
-pip install -r requirements.txt
-```
+1. Clone the repository.
+2. Run `git submodule update --recursive --remote` to get the latest version of the frontend submodule.
+3. Run `./run.sh` to start the backend servers and the frontend.
 
-2. Add a `.env` file inside the `config/` folder with the correct variables.
+## Description
 
-3. Run:
-```bash
-python main.py
-```
+The backend consists of two microservices, one with all the core and business logic, and a standalone OSRM server for faster map related queries. The frontend is a React app that uses the backend to get the data and display it.
 
-## Folder description
-`data/`: Contains the input files.
-`config/`: Base config, variables, secrets, etc.
-`locaton/`: The geocoding logic.
-`osrm/`: Contains the data related to the OSRM server maps.
+The script `run.sh` starts all the three services and takes care of the dependencies. 
 
-## Steps to run
-
-```bash
-./run-backend.sh
-```
+The backend is written in Python and uses Flask as the web framework. The frontend is written in React and uses the Tomtom API for the map.
