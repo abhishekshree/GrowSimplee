@@ -7,7 +7,7 @@ load_dotenv(find_dotenv())
 
 @dataclass(frozen=True)
 class Variables:
-    bingAPIKey: str = "ApmSZKJVn_7dpTooD0MKEmAreORrBmpMRz69KAmuDthZlT1O93U_6VzjPm679m7k"
+    bingAPIKey: str = "Ap3h89OtqBYK-5F6fBbi43Pk97AYAOkICizZiIFEqB9NXplPD_1AOaFiKwTU8WgX"
     uploadFolder: str = "data/upload/"
     databaseURI: str = "sqlite:///gs.db"
     debug: bool = True
@@ -20,7 +20,7 @@ class Variables:
     osrm: str = "http://osrm:5000"
     GeoApifyKey: str = "295dd37df0674ff9ade5603ac2e14baf"
     time_penalty: int = 100
-    drop_penalty: int = 1000000
+    drop_penalty: int = 1800000
     timeout: int = 100
     # twilio
     twilioAccountSID: str = "AC2c3f0629857d4cd25d0a5a809604e711"

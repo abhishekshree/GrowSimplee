@@ -59,6 +59,7 @@ class PathGen:
         for loc in self.input_map:
             data["demands"].append(loc["volume"])
         data["num_vehicles"] = self.num_drivers
+        # data["vehicle_ratings"] = [random.random() for i in range(data["num_vehicles"])]
         # Fixed to use the bigger bag out of the two
         data["vehicle_capacity"] = 640000
         data["depot"] = self.hub_node
@@ -75,6 +76,18 @@ class PathGen:
             ]
 
         return distance_evaluator
+    
+    ## part of handling driver productivity
+    
+    # def create_distance_evaluator2(self, data, rating):
+    #     _distances = data["distance"]
+
+    #     def distance_evaluator(manager, from_node, to_node):
+    #         return int(_distances[manager.IndexToNode(from_node)][
+    #             manager.IndexToNode(to_node)
+    #         ] * (2 - rating))
+
+    #     return distance_evaluator
 
     def create_demand_evaluator(self, data):
         _demands = data["demands"]
@@ -171,9 +184,7 @@ class PathGen:
     def solve(self, timeout):
         self.distance_duraton_matrix()
         data = self.create_data_model()
-        # print(data["num_locations"])
-        # print(data["num_vehicles"])
-        # print(data["depot"])
+
         manager = pywrapcp.RoutingIndexManager(
             data["num_locations"], data["num_vehicles"], data["depot"]
         )
@@ -182,7 +193,15 @@ class PathGen:
         distance_evaluator_index = routing.RegisterTransitCallback(
             partial(self.create_distance_evaluator(data), manager)
         )
+
         routing.SetArcCostEvaluatorOfAllVehicles(distance_evaluator_index)
+
+        ## For driver productivity purposes
+        # for driver in range(data["num_vehicles"]):
+        #     _distance_evaluator_index = routing.RegisterTransitCallback(
+        #         partial(self.create_distance_evaluator2(data, data["vehicle_ratings"][driver]), manager)
+        #     )
+        #     routing.SetArcCostEvaluatorOfVehicle(_distance_evaluator_index, driver)
 
         demand_evaluator_index = routing.RegisterUnaryTransitCallback(
             partial(self.create_demand_evaluator(data), manager)
@@ -219,7 +238,6 @@ class PathGen:
             return True
 
     def get_output_map(self):
-        # TODO: What to do if a solution is not found
         intial_timeout = Variables.timeout
         while self.solve(intial_timeout):
             intial_timeout += 100

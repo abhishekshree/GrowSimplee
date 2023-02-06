@@ -65,8 +65,8 @@ class Geocoding:
         # volume = self.address_df["volume"]
         volume = [random.randint(27, 16001) for i in range(len(addrs))]
         # TODO: randomize EDD for testing
-        # EDD = self.address_df["EDD"]
-        EDD = [random.randint(1000, 18000) for i in range(len(addrs))]
+        EDD = self.address_df["EDD"]
+        # EDD = [random.randint(1000, 18000) for i in range(len(addrs))]
         pickup = [False for i in range(len(addrs))]
         # pickup = self.address_df["pickup"]
         address_pool = self.generate_address_pool(addrs)
@@ -94,7 +94,7 @@ class Geocoding:
                     "name": names[i],
                     "product_id": product_id[i],
                     "volume": volume[i],
-                    "EDD": int(EDD[i]),
+                    "EDD": 18000,
                     "pickup": pickup[i],  ## DO NOT KNOW THE FORMAT OF THIS YET
                 }
             )
