@@ -290,8 +290,8 @@ def insert_dynamic_points(admin_id):
             idx += 1
 
             route_end_time = route[-1]["EDT"]
-            # TODO: change 18000 to hub node ka end time
-            if route_end_time + extra_time > 18000:
+            # TODO: change 21600 to hub node ka end time
+            if route_end_time + extra_time > 21600:
                 continue
             # curr_time = extra_time #TODO: ask about the metric for time like what is lasttime, i think arpit's algo tries to take into account the time take for subsequest deliveries if the dynamic deilvery is done but that info is not available so makes no sense
 
@@ -481,7 +481,7 @@ def add_dynamic_point():
             "longitude": longitude,
             "pickup": True,
             # TODO: see to the EDD of random points based on the input format
-            "EDD": 18000,
+            "EDD": 21600,
             "volume": volume,
         }
 

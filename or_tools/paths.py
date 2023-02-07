@@ -64,7 +64,7 @@ class PathGen:
         data["vehicle_capacity"] = 640000
         data["depot"] = self.hub_node
         data["demands"][data["depot"]] = 0
-        data["time_windows"][data["depot"]] = (0, 18000)
+        data["time_windows"][data["depot"]] = (0, 21600)
         return data
 
     def create_distance_evaluator(self, data):
@@ -118,11 +118,31 @@ class PathGen:
             ]
 
         return time_evaluator
+    
+    def create_node_evaluator(self, data):
+        
+        def node_evaluator(manager, node):
+            curr_node = manager.IndexToNode(node)
+            if(curr_node != data["depot"]):
+                return 1
+            else:
+                return 0
+        
+        return node_evaluator
+    
+    def add_nodes_constraints(self, routing, data, nodes_evaluator_index):
+        counter = 'Counter'
+        routing.AddDimension(
+            nodes_evaluator_index,
+            0,
+            30,
+            True,
+            counter)
 
     def add_time_window_constraints(self, routing, manager, data, time_evaluator_index):
         time = "Time"
         # TODO: check horizon whether valid to keep constant or not
-        horizon = 15000
+        horizon = 18000
         routing.AddDimension(
             time_evaluator_index,
             0,  # allow waiting time
@@ -207,6 +227,10 @@ class PathGen:
             partial(self.create_demand_evaluator(data), manager)
         )
         self.add_capacity_constraints(routing, data, demand_evaluator_index)
+
+        node_evaluator_index = routing.RegisterUnaryTransitCallback(
+            partial(self.create_node_evaluator(data), manager))
+        self.add_nodes_constraints(routing, data, node_evaluator_index)
 
         time_evaluator_index = routing.RegisterTransitCallback(
             partial(self.create_time_evaluator(data), manager)
