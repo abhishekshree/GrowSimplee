@@ -57,7 +57,7 @@ class Geocoding:
 
     def generate(self):
         addrs = self.address_df["address"]
-        location = self.address_df["location"]
+        location = self.address_df["location"] if "location" in self.address_df else None
         AWB = self.address_df["AWB"]
         names = self.address_df["names"]
         product_id = self.address_df["product_id"]

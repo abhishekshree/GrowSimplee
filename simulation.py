@@ -14,6 +14,7 @@ paths_url = "http://localhost:5050/get/driver/path?"
 
 r = requests.request("GET", drivers_url)
 drivers = r.json()
+print(drivers)
 print (r)
 
 osrm = "http://localhost:5000"
@@ -31,7 +32,10 @@ driver_completed = [False]*len(drivers)
 
 for driver in drivers:
     driver_path=[]
-    path = requests.get(paths_url + f"driver_id={driver['driver_id']}").json()
+    path = requests.get(paths_url + f"driver_id={driver['driver_id']}")
+    # print("PATH: ",path)
+    path=path.json()
+    # print(path)
 
     if len(driver_prefix) == 0:
         driver_prefix.append(len(path))    

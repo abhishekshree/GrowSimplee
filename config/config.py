@@ -7,7 +7,7 @@ load_dotenv(find_dotenv())
 
 @dataclass(frozen=True)
 class Variables:
-    bingAPIKey: str = "Ap3h89OtqBYK-5F6fBbi43Pk97AYAOkICizZiIFEqB9NXplPD_1AOaFiKwTU8WgX"
+    bingAPIKey: str = "ApmSZKJVn_7dpTooD0MKEmAreORrBmpMRz69KAmuDthZlT1O93U_6VzjPm679m7k"
     uploadFolder: str = "data/upload/"
     databaseURI: str = "sqlite:///gs.db"
     debug: bool = True

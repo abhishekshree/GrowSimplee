@@ -8,6 +8,7 @@ import time as t
 #TODO: normalize with resepct to prefix sums
 
 admin_id = sys.argv[1]
+driver_no=int(sys.argv[2])
 print(admin_id)
 drivers_url = f"http://localhost:5050/get/admin/drivers?admin_id={admin_id}"
 paths_url = "http://localhost:5050/get/driver/path?"
@@ -51,30 +52,28 @@ duration_matrix = r["durations"]
 
 # print(driver_prefix)
 
-max_duration=0
-
 for i in range(len(driver_prefix[:-1])):
     driver_path_durations=[0]
     for j in range(driver_prefix[i], driver_prefix[i+1]-1):
         driver_path_durations.append(duration_matrix[j][j+1])
     times_to_reach.append(driver_path_durations)
 
+# print(times_to_reach)
+
 
 for d in times_to_reach:
     for i in range(1,len(d)):
         d[i]+=d[i-1]
 
+
+max_duration =0
 for i in times_to_reach:
     for j in i:
         max_duration=max(max_duration,j)
-# print(max_duration)
+print(max_duration)
 
-for i in range(len(times_to_reach)):
-    for j in range(len(times_to_reach[i])):
-        times_to_reach[i][j] = times_to_reach[i][j]*time_frame/max_duration
+# print(times_to_reach)
 
-
-# print(duration_matrix)
 
 # print(r)
 
@@ -84,65 +83,37 @@ for i in range(len(times_to_reach)):
 
 
 
-# print(times_to_reach)
+print(times_to_reach)
 
 
 # print(times_to_reach)
 # print("LEN D ", len(times_to_reach[0]))
 # print("LEN P ", len(driver_paths[0]))
 # print("LEN L ", len(driver_locs[0]))
-test = [0]*len(driver_paths[0])
+# test = [0]*len(driver_paths[0])
 
 # print(driver_paths[0][-1])
 
 # print(driver_paths[0])
 # print(times_to_reach[0])
 
-for i in range(len(times_to_reach[0])):
-    print(times_to_reach[0][i], "  -  ", driver_paths[0][i])
+for i in range(len(times_to_reach[driver_no])):
+    print(times_to_reach[driver_no][i], "  -  ", driver_paths[driver_no][i])
 
+current_time =0 
+time_step = 600
 
-for time in range(0,int(time_frame)):
-    # t.sleep(0.55)
+current_pos = 0
+
+for time in range(0,int(max_duration)+time_step,time_step):
     print("TIME: ", time)
-    for i in range(0,1):
-        if driver_completed[i]:
-
-            driver_pos[i]=driver_paths[i][-1]
-            print("DELIVERED")
-            print("CURR POINT ", driver_pos[i])
-        else:
-            if time>=times_to_reach[i][-1]:
-                driver_completed[i]=True
-                driver_pos[i]=driver_paths[i][-1]
-                
-                continue
-            while driver_locs[i]-1< len(times_to_reach) and time>=times_to_reach[i][driver_locs[i]]:
-                driver_locs[i]+=1
-
-
-                # driver_locs[i]+=1
-                # if driver_locs[i]>=len(driver_paths[i])-1:
-                #     driver_completed[i]=True
-                #     break
-            driver_locs[i]-=1 # gives last point visited
-            print("DRIVER LOC ", driver_locs[i])
-            if driver_completed[i]:
-                driver_pos[i]=driver_paths[i][-1]
-            else:
-                curr_point = driver_paths[i][driver_locs[i]]
-                next_point = driver_paths[i][driver_locs[i]+1]
-                duration_between_points = times_to_reach[i][driver_locs[i]+1]-times_to_reach[i][driver_locs[i]]
-                time_elapsed = time - times_to_reach[i][driver_locs[i]]
-                x_curr = curr_point[0]+ (next_point[0]-curr_point[0])*time_elapsed*1.0/duration_between_points
-                y_curr = curr_point[1]+ (next_point[1]-curr_point[1])*time_elapsed*1.0/duration_between_points
-                driver_pos[i]=[x_curr,y_curr]
-            print("CURR POINT ", driver_pos[i])
-
-        
-        
-
-
-
-
+    if time>=times_to_reach[driver_no][-1]:
+        print("COMPLETED")
+        print("CURRENTLY AT: ", driver_paths[driver_no][-1])
+    else:
+        while(times_to_reach[driver_no][current_pos]<=time):
+            current_pos+=1
+        current_pos-=1
+        print("CURRENTLY AT: ", driver_paths[driver_no][current_pos])
+    
 

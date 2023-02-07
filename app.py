@@ -460,7 +460,7 @@ def add_dynamic_point():
         admin = Admin.query.get_or_404(admin_id)
 
         address = request.get_json()["address"]
-        location = request.get_json()["location"]
+        location = request.get_json()["location"] if request.get_json()["location"] else ""
         awb = request.get_json()["awb"]
         name = request.get_json()["name"]
         product_id = request.get_json()["product_id"]
