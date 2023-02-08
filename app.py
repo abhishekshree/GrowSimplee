@@ -429,6 +429,27 @@ def input():
         )
 
 
+@app.route("/post/admin/setTime")
+def update():
+    if request.method=="POST":
+        if "admin_id" not in request.get_json():
+            return jsonify({"message": "Admin id not received"})
+        if "time" not in request.get_json():
+            return jsonify({"message": "Time not specified"})
+        admin_id = request.get_json()["admin_id"]
+        time = request.get_json()["time"]
+
+        drivers = Driver.query.filter(Driver.admin_id == admin_id).all()
+        for driver in drivers:
+            path = json.loads(driver.path)
+            for point in path:
+                if point["EDT"]<= time:
+                    point["delivered"]=True
+            driver.path = json.dumps(path)
+            db.session.commit()
+
+
+
 @app.route(
     "/post/admin/dynamicPoint", methods=["POST"]
 )  # Allows admin to add a dynamic point
