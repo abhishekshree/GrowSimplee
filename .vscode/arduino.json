@@ -1,0 +1,6 @@
+{
+    "board": "arduino:avr:uno",
+    "programmer": "arduino:arduinoisp",
+    "sketch": "test.ino",
+    "output": "build"
+}
