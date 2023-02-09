@@ -52,6 +52,7 @@ class Geocoding:
             if self.calc_distance(addr["latitude"], addr["longitude"]) <= 20:
                 new_map.append(addr)
             else:
+                print("Removed:")
                 print(addr)
         self.result = new_map
 

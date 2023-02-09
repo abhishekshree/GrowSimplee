@@ -7,7 +7,7 @@ load_dotenv(find_dotenv())
 
 @dataclass(frozen=True)
 class Variables:
-    bingAPIKey: str = "Ap3h89OtqBYK-5F6fBbi43Pk97AYAOkICizZiIFEqB9NXplPD_1AOaFiKwTU8WgX"
+    bingAPIKey: str = "Alx7KAgiBJtrNolwuWwi7qKDuVEc-GdaIct2v7XLUq3rQaZGfn-7zEljQzN-Vu3H"
     uploadFolder: str = "data/upload/"
     databaseURI: str = "sqlite:///gs.db"
     debug: bool = True
@@ -21,7 +21,7 @@ class Variables:
     GeoApifyKey: str = "295dd37df0674ff9ade5603ac2e14baf"
     time_penalty: int = 100
     drop_penalty: int = 1800000
-    timeout: int = 500
+    timeout: int = 100
     # twilio
     twilioAccountSID: str = "AC2c3f0629857d4cd25d0a5a809604e711"
     twilioAuthToken: str = "d373c4aac3353de2045b9937c7c98135"

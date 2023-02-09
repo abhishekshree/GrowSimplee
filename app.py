@@ -107,6 +107,12 @@ class Driver(db.Model):
 #     z_scores = map(lambda point: norm([point["latitude"], point["longitude"]], avg)/std, input_map)
 #     return z_scores
     
+def calc_distance(lat, long):
+    bang_coord = [12.97674656, 77.57527924]
+    dist_y = ((lat - bang_coord[0]) * 20004) / 180
+    dist_x = ((long - bang_coord[1]) * 40075) / 360
+    dist = (dist_x**2 + dist_y**2) ** 0.5
+    return dist
 
 def get_undelivered_points(driver_id):
     driver = Driver.query.get_or_404(driver_id)
@@ -401,7 +407,7 @@ def input():
         if not allowed_file(file.filename):
             return jsonify({"message": "Allowed file types are xlsx, xls, csv"}), 400
 
-        admin_id = form["admin_id"]
+        admin_id = int(form["admin_id"])
         admin = Admin.query.get_or_404(admin_id)
         n = int(form["no_of_drivers"])
         if len(sys.argv) > 1:
@@ -430,15 +436,15 @@ def input():
         )
 
 
-@app.route("/post/admin/setTime")
+@app.route("/post/admin/setTime", methods=["POST"])
 def update():
     if request.method=="POST":
         if "admin_id" not in request.get_json():
             return jsonify({"message": "Admin id not received"})
         if "time" not in request.get_json():
             return jsonify({"message": "Time not specified"})
-        admin_id = request.get_json()["admin_id"]
-        time = request.get_json()["time"]
+        admin_id = int(request.get_json()["admin_id"])
+        time = int(request.get_json()["time"])
 
         drivers = Driver.query.filter(Driver.admin_id == admin_id).all()
         for driver in drivers:
@@ -449,6 +455,8 @@ def update():
             driver.path = json.dumps(path)
         db.session.commit()
 
+        return jsonify({"message": "Time updated successfully"}), 200
+
 
 
 @app.route(
@@ -456,7 +464,7 @@ def update():
 )  # Allows admin to add a dynamic point
 def add_dynamic_point():
     if request.method == "POST":
-        print(request.get_json())
+        # print(request.get_json())
         if "admin_id" not in request.get_json():
             return jsonify({"message": "Admin id not received"})
 
@@ -489,6 +497,14 @@ def add_dynamic_point():
         volume = float(request.get_json()["volume"])
 
         latitude, longitude = get_geocoding_for(address)
+        distance = calc_distance(latitude, longitude)
+
+        if(distance > 20):
+            return jsonify(
+                {
+                    "message": "Point could not be added because of wrong location"
+                }
+            ), 400
 
         # address = pd.read_json(json.dumps([data]))
         # result = Geocoding(Variables.bingAPIKey, address).generate()
