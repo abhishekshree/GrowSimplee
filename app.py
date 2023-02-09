@@ -418,8 +418,9 @@ def input():
             )
 
         put_input_map(admin_id=admin_id, file=file)
-        remove_ridiculous_points(admin_id=admin_id)
-        generate_drivers(admin_id=admin_id, n=n)
+        # remove_ridiculous_points(admin_id=admin_id)
+        admin.num_drivers = n
+        db.session.commit()
 
         return jsonify(
             {
@@ -446,7 +447,7 @@ def update():
                 if point["EDT"]<= time:
                     point["delivered"]=True
             driver.path = json.dumps(path)
-            db.session.commit()
+        db.session.commit()
 
 
 
@@ -595,6 +596,10 @@ def gen_map():
             unrouted_points.append(input_map[idx])
 
         admin.unrouted_points = json.dumps(unrouted_points)
+        num_drivers = len(output_map)
+        admin.num_drivers = num_drivers
+        generate_drivers(admin_id=admin_id, n=num_drivers)
+        db.session.commit()
 
         # print("output map", output_map)
 
@@ -685,6 +690,21 @@ def get_admin_input():
     admin = Admin.query.get_or_404(admin_id)
     map_data = json.loads(admin.input_map) if admin.input_map else []
     return jsonify(map_data), 200
+
+@app.route("/get/admin/driverRoutes", methods=["GET"])
+def get_driver_routes():
+    if "admin_id" not in request.args:
+        return jsonify({"message": "Admin id not provided"})
+    admin_id = request.args.get("admin_id")
+    
+    drivers = Driver.query.filter(Driver.admin_id == admin_id).all()
+    driver_routes = []
+    for driver in drivers:
+        driver_routes.append(json.loads(driver.path))
+    output = {
+        "Routes": driver_routes
+    }
+    return jsonify(output), 200
 
 
 @app.route("/get/coordinates", methods=["GET", "POST"])
